@@ -26,4 +26,4 @@ collections:
     output: true
     permalink: /poetry/:path/
 
-
+plugins: [jekyll-paginate]
