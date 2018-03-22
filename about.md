@@ -13,7 +13,7 @@ I'm interested in all things space and rocketry but I'm currently spending most 
 <p/>
 <p/>
 I spend my own time reading and taking <a href="https://www.instagram.com/angel_11/" target="blank">photographs</a>. 
-<hr/>
+
 <br/>
 <span class="contacticon center">
 	<a href="mailto:angelortizelguero@gmail.com"><i class="fa fa-envelope-square"></i></a>
@@ -21,7 +21,6 @@ I spend my own time reading and taking <a href="https://www.instagram.com/angel_
 	<a href="https://www.linkedin.com/in/angelortizelguero/" target="_blank"><i class="fa fa-linkedin-square"></i></a>
 	<a href="https://twitter.com/theangelortiz" target="_blank"><i class="fa fa-twitter-square"></i></a>
 </span>
-
 <div class="col two caption">
 	The best way to reach me is by email at: angelo12 (at) vt (dot) edu.
 </div>
