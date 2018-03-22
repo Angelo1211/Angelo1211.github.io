@@ -16,7 +16,7 @@ I spend my own time reading and taking <a href="https://www.instagram.com/angel_
 
 <br/>
 <span class="contacticon center">
-	<a href="mailto:angelortizelguero@gmail.com"><i class="fa fa-envelope-square"></i></a>
+	<a href="mailto:angelo12@vt.edu"><i class="fa fa-envelope-square"></i></a>
 	<a href="https://github.com/Angelo1211" target="_blank"><i class="fa fa-github-square"></i></a>
 	<a href="https://www.linkedin.com/in/angelortizelguero/" target="_blank"><i class="fa fa-linkedin-square"></i></a>
 	<a href="https://twitter.com/theangelortiz" target="_blank"><i class="fa fa-twitter-square"></i></a>
