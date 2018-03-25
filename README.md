@@ -2,7 +2,7 @@
 
 Go to <a href="https://github.com/bogoli/-folio">-folio's github page</a> for a detail explanation of the theme and it's capabilities.
 
-###Live demo of the theme
+### Live demo of the theme
 <a href="http://liabogoev.com/-folio">Live Demo</a>
 
 <hr/>
