@@ -6,7 +6,7 @@ img: /img/rascal.jpg
 redirect: 
 cat: aero
 ---
- My senior design project consisted in participating in a year long NASA sponsored competition with the goal of designing a LEO / Mars habitable module. Our project received the highest honours and achieved first place in every category! You can read more about the work me and my team did in <a href="https://www.nasa.gov/feature/university-students-compete-in-yearlong-nasa-human-space-exploration-competition" target="blank">this</a> article that was featured in <a href="nasa.gov">nasa.gov</a> shortly after.
+ My senior design project consisted in participating in a year long NASA sponsored competition with the goal of designing a LEO / Mars habitable module. Our project received the highest honours and achieved first place in every category! You can read more about the work me and my team did in <a href="https://www.nasa.gov/feature/university-students-compete-in-yearlong-nasa-human-space-exploration-competition" target="blank">this</a> article that was featured in nasa.gov shortly after.
 
 
  <div align="center">
