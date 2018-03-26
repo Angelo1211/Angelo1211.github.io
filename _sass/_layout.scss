@@ -207,11 +207,11 @@ height: 230px;
 overflow: hidden;
 }
 .thumbnail img{
-width: 500px;
-height: 500px;
-position: relative;
-left: -25%;
-top: -5%;
+width: 100%;
+height: 100%;
+position: static;
+left: 0%;
+top: 0%;
 }
 .thumbnail a{
 float: left;
@@ -232,8 +232,13 @@ padding: 40px;
 text-align: center;
 }
 .thumbnail a:hover span {
-display: block;
+    display: block;
 }
+.thumbnail a:hover img {
+    webkit-filter: blur(4px); /* Chrome, Safari, Opera */
+    filter: blur(4px);
+}
+
 /** 
  * Portfolio pages **********************************************************
 */
