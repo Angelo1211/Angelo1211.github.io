@@ -4,6 +4,8 @@ title: Portfolio
 permalink: /portfolio/
 ---
 
+
+
 {% for project in site.portfolio %}
 
 {% if project.redirect %}
