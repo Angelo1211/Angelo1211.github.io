@@ -4,7 +4,7 @@ layout: default
 
 <div class="header-bar">
   <h1>Ángel Ortiz</h1>
-  <h2>Software Developer | Aerospace Engineer </h2>
+  <h2>Aerospace Engineer | Software Developer</h2>
   <br/>
   <hr>
   <br/>
@@ -16,7 +16,9 @@ layout: default
       <li>
         <h2><a class="post-title" href="{{ post.url | prepend: site.baseurl }}">{{ post.title }}</a></h2>
         <p class="post-meta">{{ post.date | date: '%B %-d, %Y — %H:%M' }}</p>
-        <p>{{ post.description }}</p>
+        <p class="post-description">{{ post.description }}</p>
+
+        <p>{{ post.content | strip_html | truncatewords: 50 }}  <a href="{{ post.url | prepend: site.baseurl }}"> More <i class="fa fa-arrow-right"></i></a></p>
         <br/>
         <hr/>
       </li>
