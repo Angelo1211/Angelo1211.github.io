@@ -1,0 +1,22 @@
+---
+layout: post
+title:  CFD + Python = GIFs!
+date:   2018-06-15 10:00:00
+description: My experience building a CFD solver by following the 12 Steps to Navier-Stokes.
+---
+
+<div class="img">
+	<img class="col gif" src="{{ site.baseurl }}/img/CFD/NSCavityLid2.gif">
+</div>
+
+So I just completed a fantastic course about building CFD models in Python called the <a href="https://github.com/barbagroup/CFDPython" target="blank">12 Steps to Navier-Stokes.</a> You can check out my code directly <a href="https://github.com/Angelo1211/CFDPython" target="blank">[here]</a> or read more about why I chose to work on this project and what I've learned from the experience on my <a href="https://aortiz.me/portfolio/4_project" target="blank">  portfolio page.</a>
+<br/>
+
+As an extra challenge I animated all of the simulations and I'm very happy with the final results. It was not easy, specially the more complex 2D sims, but I feel that my knowledge of matplotlib has become much more robust in the process and I now get some sweet animations for my webpage! My hope for this project moving forward is to reuse this code so that it serves as the foundation for all future CFD solvers I might work on.
+<br/>
+
+This project was also important to me because it's the first one I have completed since I built my webpage and therefore it is the first to make full use of its capabilities as a showcasing machine. I've put a lot of effort on polishing the presentation and making it look nice and I hope it shows. It took more time than I am willing to admit to get all the images and text formatted correctly &mdash; I think I ended up spending more time on CSS's documentation than on Python's &mdash; but I think in the end it was worth it. As always, I'm open to feedback or any suggestions that you might have about how to improve and I'm reacheable at any of the links at the bottom of my about page. If you're also interested in projects that live at the intersection of Computer Science and Aerospace let's talk! 
+<br/>
+
+In any case, I'm not 100% sure yet abut the focus of my next project but I don't want my C++ skills to get any rustier so I'm going to be searching for a relevant C++ project during the next couple of days. Stay tuned for an update on that soon!
+

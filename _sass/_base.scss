@@ -19,9 +19,10 @@ $nav-height:                    56px;
 
 /* portfolio tinkering */
 $img_spacing: 5px; 
-$img_height: 275px;
-$caption_font_size: 12px;
-$caption_color: #aaa;
+$img_height: 300px;
+$gif_height: 375px;
+$caption_font_size: 13px;
+$caption_color: #333;
 
 /* COLORS  */
 $red:  #FF3636;
@@ -34,7 +35,7 @@ $purple: #B509AC;
 
 $grey-color-dark: #333;   /* footer */
 $grey-color-light: #ddd;  /* navigation bar border */
-$text-color:     #666;
+$text-color:     #222;
 
 /* Set theme color *************************/
 $theme-color:   $red;

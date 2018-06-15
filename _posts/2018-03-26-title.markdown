@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  Hi!
+title:  Hi
 date:   2018-03-26 17:00:00
 description: Blog about building a new place to showcase my work & personal projects.
 ---
@@ -11,7 +11,7 @@ Hello! Welcome to my personal website and portfolio page. I have built it with t
 This being my first foray into web dev and front end stuff I apologize in advance for the sparse look and feel of the page. I'm figuring things out as I go and I'm treating this as another work-in-progress project to learn more about the intricacies of  web development. 
 <br/>
 
-Nevertheless, I have some of my most recent work already on display on my portfolio tab and more is on the way! I'll leave this here as a sneak peek of a project I've been working on for a while and will be talking more about later this week:
+Nevertheless, I have some of my most recent work already on display on my portfolio tab and more is on the way! I'll leave this here as a sneak peek of a project I've been working on for a while and will be talking more about soon:
 
 <div class="img">
 	<img class="col three" src="{{ site.baseurl }}/img/gridFin.png">
