@@ -11,6 +11,8 @@ description: Selected projects covering my work in Aerospace, Machine Learning a
 {% endif %}
 {% endfor %} 
 --> 
+---
+<br/>
 <p><b>Machine Learning</b>: includes my submissions for Kaggle competitions and other related projects.</p>
 {% for project in site.portfolio %}
 {% if project.cat == "ML" %}

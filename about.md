@@ -9,7 +9,7 @@ permalink: /about/
 Hi! I'm Ángel Ortiz an Aerospace Engineer currently living in Barcelona, Spain. I graduated from <a href="https://vt.edu/" target="blank">Virginia Tech</a> in May 2017 with a Bachelor of Science in <a href="https://www.aoe.vt.edu/" target="blank">Aerospace Engineering.</a>
 <p/>
 <p/>
-Usurprisingly, I am extremely passionate about all things space and rocketry but I currently spend most of my time working on building up my programming skillset, developing cool <a href="https://github.com/Angelo1211/selfDrivingSimTest" target="blank">simulations</a> and CAD modeling. Most recently, I've been focusing on furthering my understanding of <a href="https://github.com/Angelo1211/Statoil-Project" target="blank">machine learning </a> and data science and thinking of new ways to use these tools in my future engineering endeavours.
+Unsurprisingly, I am extremely passionate about all things space and rocketry but I currently spend most of my time working on building up my programming skillset, developing cool <a href="https://github.com/Angelo1211/selfDrivingSimTest" target="blank">simulations</a> and CAD modeling. Most recently, I've been focusing on furthering my understanding of <a href="https://github.com/Angelo1211/Statoil-Project" target="blank">machine learning </a> and data science and thinking of new ways to use these tools in my future engineering endeavours.
 <p/>
 <p/>
 Otherwise, I spend most of my own time reading sci-fi, enjoying the local food in BCN and occasionally taking <a href="https://www.instagram.com/angel_11/" target="blank">photographs</a>. 
