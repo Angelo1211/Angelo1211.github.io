@@ -23,7 +23,7 @@ I'm currently available for work! If interested you can download a pdf copy of m
 	<a href="mailto:angelo12@vt.edu"><i class="fa fa-envelope-square"></i></a>
 	<a href="https://github.com/Angelo1211" target="_blank"><i class="fa fa-github-square"></i></a>
 	<a href="https://www.linkedin.com/in/angelortizelguero/" target="_blank"><i class="fa fa-linkedin-square"></i></a>
-	<a href="https://twitter.com/theangelortiz" target="_blank"><i class="fa fa-twitter-square"></i></a>
+	<a href="https://twitter.com/aortizelguero" target="_blank"><i class="fa fa-twitter-square"></i></a>
 </span>
 <div class="col three caption ">
 	The best way to reach me is by email at: angelo12 (at) vt (dot) edu.
