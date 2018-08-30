@@ -1,11 +1,11 @@
 # Site settings
-title: Angel Ortiz'z portfolio
-email: angelortizelguero@gmail.com
+title: Angel Ortiz 
+email: angelo12@vt.edu
 description: > # this means to ignore newlines until "baseurl:"
   A website to showcase my work & personal projects
 baseurl:  # the subpath of your site, e.g. /blog/
 url:  # the base hostname & protocol for your site
-twitter_username: theangelortiz
+twitter_username: aortizelguero
 github_username:  Angelo1211
 
 # Build settings
