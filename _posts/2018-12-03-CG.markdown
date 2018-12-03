@@ -1,0 +1,62 @@
+---
+layout: post
+title:  Clustered Shading...In Depth.
+date:   2018-06-15 10:00:00
+description: A deep dive into the subject of efficient shading algorithms.
+---
+
+###  Tweet sized TL;DR:
+---
+
+<br>
+*Cluster shading is an efficient and versatile rendering algorithm capable of unified lighting for both forward and deferred shading systems. It divides the view frustum into a 3D grid of blocks or "clusters" and quickly computes a list of lights intersecting each active volume.*
+
+---
+
+<br/>
+
+### **Rendering Algorithms**
+
+*...versatile **rendering algorithm** capable...*
+
+### **Measuring Efficiency**
+
+*Cluster shading is an **efficient** and...*
+
+### **Forward VS Deferred**
+
+*...for both **forward and deferred shading systems**. It...*
+
+### **Unified Lighting Solution**
+
+*... capable of **unified lighting** for both...*
+
+### **View Space**
+
+*...divides the **view frustum** into a 3D grid ...*
+
+### **Clusters**
+
+*...into a **3D grid of blocks or "clusters"** and ...*
+
+### **Active Volumes Determination**
+
+*...intersecting each **Active Volume**...*
+
+### **Light Culling**
+
+*...computes a **list of lights** intersecting...*
+
+### **Optimizations**
+
+*... and **quickly computes** a list ...*
+
+### **Variants**
+
+*...efficient and **versatile** rendering algorithm...*
+
+
+
+---
+<br>
+### **References**
