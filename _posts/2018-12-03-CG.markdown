@@ -1,62 +1,168 @@
 ---
 layout: post
-title:  Clustered Shading...In Depth.
-date:   2018-06-15 10:00:00
-description: A deep dive into the subject of efficient shading algorithms.
+title:  A Quick Primer On Clustered Shading.
+date:   2018-12-02 23:13:40
+description: Introducing the background and concepts needed to understand the subject and taxonomy of efficient shading algorithms.
 ---
 
-###  Tweet sized TL;DR:
----
+For the past three months I've been fully immersed in the world of computer graphics by working full-time on a 3D renderer built with OpenGL. I'm pretty happy with how it's coming along so far and although there's still a handful of features I'd like to include, I finally feel comfortable enough with the final result to share with the world in its current semi-presentable state. I've uploaded it to GitHub and you can [check it out here](https://github.com/Angelo1211/HybridRenderingEngine). It is currently only available on Windows platforms, but who knows, I might get it to work on Linux at some point soon, fingers crossed.
 
-<br>
-*Cluster shading is an efficient and versatile rendering algorithm capable of unified lighting for both forward and deferred shading systems. It divides the view frustum into a 3D grid of blocks or "clusters" and quickly computes a list of lights intersecting each active volume.*
+It comes with all the familiar bells and whistles you've probably come to expect from the multitude of hobby renderers out there: shadow mapping, MSAA, normal mapping - you name it, if it has an online tutorial it's probably in there. However, among the sea of entry level features there's one in particular that I feel is not, so to speak, "stock", and of which I'm proud enough to have convinced myself that it is worthy of its own post. I'm of course talking about my own personal implementation of **Clustered shading**. An algorithm I first encountered in [this article by Adrian Courreges on DOOM 2016](http://www.adriancourreges.com/blog/2016/09/09/doom-2016-graphics-study/) which, if you haven't already read, I highly recommend you do before continuing, since it's simply a fascinating read, with great content and a slick presentation full of animations that are the envy of all graphics programming blogs out there. 
+
+I read it not too long ago, when I was halfway done building my renderer &mdash; although at the time I would have told you I was 80% done &mdash; and at a point where I felt pretty great about myself. I had finally left the dark, dark, hopeless pit that is getting a "correct" shadow mapping implementation working, and it certainly felt like all was going to be smooth sailing from now on. Maybe that's why my first thoughts when I read the section on Clustered shading were something along the lines of: "hmm, this seems pretty neat! I wonder how hard it REALLY could be to implement? I mean, it's kind of like culling but with some extra steps and all done on the GPU. I know how to write regular shaders, compute shaders can't be so different! Shouldn't take too long."
+
+Three weeks, [12 articles](https://github.com/Angelo1211/HybridRenderingEngine/wiki/References#11-shading-algorithm-overviews), 3 papers[[1]](http://www.cse.chalmers.se/~uffe/clustered_shading_preprint.pdf)[[2]](https://takahiroharada.files.wordpress.com/2015/04/forward_plus.pdf)[[3]](http://www.cse.chalmers.se/~uffe/ClusteredWithShadows.pdf) and [one](http://15418.courses.cs.cmu.edu/tsinghua2017/) and a [half](https://www.youtube.com/watch?v=F620ommtjqk&list=PLGvfHSgImk4aweyWlhBXNF6XISY3um82_) online courses later I can confirm, yep, it's still not as bad as shadow mapping.
+
+So let's get to it! I'll start by summarizing Clustered shading and briefly covering all the concepts that you need to be familiar with to implement this technique. Feel free to skip a section if you're already comfortable with its subject!
+
+
+### **TL;DR**
+---
+<p></p>
+> *Cluster shading is an efficient and versatile rendering algorithm capable of unified lighting for both forward and deferred shading systems. It divides the view frustum into a 3D grid of blocks or "clusters" and quickly computes a list of lights intersecting each active volume.*
 
 ---
+*You can fit this in a tweet!*
 
 <br/>
 
 ### **Rendering Algorithms**
-
-*...versatile **rendering algorithm** capable...*
-
-### **Measuring Efficiency**
-
-*Cluster shading is an **efficient** and...*
-
-### **Forward VS Deferred**
-
+---
+*...versatile **rendering algorithm** capable of...*
 *...for both **forward and deferred shading systems**. It...*
 
-### **Unified Lighting Solution**
+Clustered shading belongs to a family of rendering algorithms known as **Efficient Shading Algorithms.** This category refers to rendering methods that improve upon the classical Forward rendering implementation and include: Deferred rendering, Tiled forward/deferred( AKA Forward+ ) and of course Clustered shading. 
 
+#### Review of Forward Shading
+
+``` c#
+for object in scene
+    if object.isVisible()
+        for light in scene
+            object.shade(light)
+```
+
+The pseudocode above could be found inside a naïve **multi-pass** classical Forward renderer. This approach is quite simple and elegant and would probably fair fine for scenes with few objects, simple materials and a couple of lights. Yet, rendering costs start to climb fast if you increase the quantity or complexity of any of these components. For example, if you have hundreds of ligths, shading for each object will incur a penalty due to the parsing of the list of lights and the overhead from repeated draw calls. And if that isn't bad enough, you'll find that eventually, even in scenes of apparent trivial complexity there will be objects that get in front of one another. This will cause something called **overdraw** which describes the phenomenon best understood by looking at an [episode of Bob Ross.](https://www.youtube.com/watch?v=0FYfo94qefg) &mdash; this one's pretty good, it'll teach you about planar reflections! &mdash; Throughout the show Bob will paint these beautiful trees and mountains and then shortly after, proceed to paint right over them with a rock in the foreground. This is fine in oil paintings, where a frame rate of *0.0006fps* won't get you fired, but in Real-Time rendering we're aiming for, well, real-time frame rates in the range of 30fps to 60fps. 
+
+Overdraw is a specially egregious problem in Forward rendering since you might end up issuing thousands of pixels worth of fragment shader calls that end up being thrown away when an object closer to the viewer gets drawn right on top of them. So how do we fix this issue? Well, I didn't come up with the [original solution](https://sites.google.com/site/richgel99/home), but I'd like to think that I could of, and I believe so could you! So let's take a second and do a quick
+exercise, go back and look at the pseudocode above. Given these two facts can you come up with an idea that would be the beginnings of Deferred Rendering and a simple solution to overdraw? 
+
+* **Fact 1**: lighting is usually much more expensive to calculate than visibility.
+* **Fact 2**: modern GPU's let us save and read data directly in the form of textures.
+
+#### Deferred Shading Techniques
+
+image...
+
+So, the key insight I was looking for is that **there is no reason why you can't perform the visibility and shading steps separately**. The ideal case scenario is obviously one where you already know exactly what objects contribute to the final image and you only invoke the pixel shaders to shade whatever is visible of them. Sadly, there is no simple function that can determine ahead of time what objects will be displayed. &mdash;[Unless, of course, you literally are a modern age wizard and can write functions that output fully detailed scenes directly](https://www.shadertoy.com/view/ldd3DX) &mdash; Instead, what we can do is run through every object in the scene as we did earlier, except this time, not shading them. Instead we'll keep track of the last object 
+that affected a pixel in some way, normally by either recording their depth or their position at that given pixel in a texture. We can summarize this in pseudocode like so:
+
+
+``` c#
+texture depthTexture = 0.0;
+for object in scene
+    if object.isVisible() && (object.depth < depthTexture.depth)
+       depthTexture.writeDepth(object)
+
+for object in scene
+    if object.depth == depthTexture.depth
+        for light in scene
+            object.shade(light)
+```
+
+This is usually known as a **Z-prepass**, and it essentially **decouples** the process of determining the visibility of an object from the act of shading it. This concept of decoupling is central to all efficient shading algorithms &mdash; some would claim that it also applies to efficient programs in general&mdash; and we'll see how each one approaches it in it's own unique way, including clustered shading, which we'll get to soon enough, I promise.  
+
+**Deferred rendering**, extends the main concept of the **Z-prepass** even further by not only writing the depth or position of a given object to textures, but also recording all of the attributes of an object that are used in shading. That includes various things such as the surface normal, the objects' albedo/color or it's specular/shininess. There really is no limit to what you can write in textures beyond the texture memory of the GPU itself. The collection of these textures
+is commonly referred to as the **G-Buffer**. Once again I have to plug [Adrian Courreges's Blog](http://www.adriancourreges.com/blog/2017/12/15/mgs-v-graphics-study/) where he goes into more detail about Deferred Rendering in his post about MGS V.
+
+Something worth noting is that both in a **Z-prepass** and in **Deferred rendering** you haven't actually eliminated overdraw. While filling the G-Buffer or your depth texture you'll still end up writing over them multiple times. However, this is *generally* not a problem anymore since the cost of accessing the shading attributes and rewriting memory is much cheaper than performing a full lighting pass. 
+
+It goes without saying &mdash;yet I will anyway&mdash; that these algorithms are only really worth implementing in projects where rendering is becoming a bottle neck and there are concerns about performance and maintaning a stable frame rate. There ain't no such thing as a free lunch, and there are side-effects to **all** of these algorithms that will add a constant overhead to the rendering process. It really might not be worth it until you are processing some hefty amount of data per frame, so make sure to consulte your ~~[primary care phycisian](https://renderdoc.org/)~~ profiler tools to assess the location of your current bottleneck.  
+
+At their core, all of these algorithms ai
+
+
+
+Of It was first introduced by [Ola Olsson et al. in Clustered Deferred and Forward Shading](http://www.cse.chalmers.se/~uffe/clustered_shading_preprint.pdf)
+
+
+
+#### Further reading:
+
+* [Rendering an Image of a 3D Scene by ScratchAPixel](https://www.scratchapixel.com/lessons/3d-basic-rendering/rendering-3d-scene-overview/computer-discrete-raster)
+* [A Short Introduction to Computer Graphics by Fredo Durand](http://people.csail.mit.edu/fredo/Depiction/1_Introduction/reviewGraphics.pdf)
+* [Clustered Forward vs Deferred Shading by Matias](http://www.yosoygames.com.ar/wp/2016/11/clustered-forward-vs-deferred-shading/)
+* [Forward vs Deferred vs Forward+ by Jeremiah van Oosten](https://www.3dgep.com/forward-plus/)
+* [The real-time rendering continuum by Angelo Pesce](http://c0de517e.blogspot.com/2016/08/the-real-time-rendering-continuum.html)
+* [Chapter 20: Efficient Shading in Real Time Rendering 4th Edition](http://www.realtimerendering.com/)
+
+
+### **Measuring Performance**
+---
+*Cluster shading is an **efficient** and...*
+
+So how should we make a decision about which algorithm we should choose for our renderer? What makes an algorithm more "optimal" than another one?  As engineers these are always  
+
+#### Further reading:
+* [Chapter 20: Efficient Shading in Real Time Rendering 4th Edition](http://www.realtimerendering.com/)
+
+### **Unified Lighting Solution**
+---
 *... capable of **unified lighting** for both...*
 
-### **View Space**
 
+
+#### Further reading:
+* [Tiled and Clustered Forward Shading Supporting Transparency and MSAA Olsson et al.](https://www.researchgate.net/publication/254463291_Tiled_and_Clustered_Forward_Shading_Supporting_Transparency_and_MSAA)
+
+### **View Space**
+---
 *...divides the **view frustum** into a 3D grid ...*
 
-### **Clusters**
+#### Further reading:
 
+### **Clusters**
+---
 *...into a **3D grid of blocks or "clusters"** and ...*
 
-### **Active Volumes Determination**
+#### Further reading:
 
+### **Active Volumes Determination**
+---
 *...intersecting each **Active Volume**...*
 
-### **Light Culling**
+#### Further reading:
 
+### **Light Culling**
+---
 *...computes a **list of lights** intersecting...*
 
-### **Optimizations**
+#### Further reading:
 
+### **Optimizations**
+---
 *... and **quickly computes** a list ...*
 
-### **Variants**
+#### Further reading:
+* [Volume Tiled Forward Shading by Jeremiah Van Oosten](https://www.3dgep.com/volume-tiled-forward-shading/)
 
+### **Successful Implementations**
+---
 *...efficient and **versatile** rendering algorithm...*
 
+So I would be remiss not to end this post by sharing some great presentations from other way more experienced devs where they discuss their own versions of Clustered shading. As you can imagine, no two of them are alike, both in the nitty-gritty details of their implementations and in the large scale differences found in the genres of the games they make. It speaks volumes of the flexibility of this algorithm and hints towards a future where hybrid forward/deferred engines are the norm for AAA products that demand the highest visual fidelity. 
 
+Also, hey, I've technically implemented a Clustered Renderer too! If you've forgotten about it after reading this whole post I don't blame you, but [here's a link](https://github.com/Angelo1211/HybridRenderingEngine) for you so you don't have to scroll all the way to the top. It's a simplified implementation with much of the code commented so you &mdash; and me in about a year when I forget &mdash; can follow along easily. Okay okay, enough self promotion, here are the goods:
+
+* [Clustered Shading in the Wild by Ola Olsson](http://efficientshading.com/blog/)
+* [(Doom 2016)The devil is in the Details by Tiago Sousa and Jean Geffrey](https://www.slideshare.net/TiagoAlexSousa/siggraph2016-the-devil-is-in-the-details-idtech-666?next_slideshow=1)
+* [Practical Clustered Shading by Emil Persson](http://www.humus.name/Articles/PracticalClusteredShading.pdf)
+* [Clustered Forward Rendering and Anti-aliasing in 'Detroit: Become Human' by Ronan Marchalot](https://twvideo01.ubm-us.net/o1/vault/gdc2018/presentations/Marchalot_Ronan_ClusteredRenderingAnd.pdf)
 
 ---
-<br>
-### **References**
+
+*Psst, hey you! If you've gotten this far I'd like to thank you for taking the time to read this post. I hope you enjoyed reading it as much as I did writing it. Just letting you know that I'm currently looking for a Graphics related position. If you're interested or know of any opportunities, I'd appreciate it if you'd let me know. Feel free to check out my about page for a choice selection of social media where you can reach me!*
+
+*Any questions? Dead links? Complaints to management? My email is angelo12@vt.edu but you can also find me on twitter at [@aortizelguero](https://twitter.com/aortizelguero).*
+
+
