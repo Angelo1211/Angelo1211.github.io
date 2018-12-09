@@ -9,6 +9,8 @@ description: My experience building a CFD solver by following the 12 Steps to Na
 	<img class="col gif" src="{{ site.baseurl }}/img/CFD/NSCavityLid2.gif">
 </div>
 
+
+
 So I just completed a fantastic course about building CFD models in Python called the <a href="https://github.com/barbagroup/CFDPython" target="blank">12 Steps to Navier-Stokes.</a> You can check out my code directly <a href="https://github.com/Angelo1211/CFDPython" target="blank">[here]</a> or read more about why I chose to work on this project and what I've learned from the experience on my <a href="https://aortiz.me/portfolio/4_project" target="blank">  portfolio page.</a>
 <br/>
 

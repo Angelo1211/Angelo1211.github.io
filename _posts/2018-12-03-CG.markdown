@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  A Quick Primer On Clustered Shading.
+title:  A Brief Primer On Efficient Rendering Algorithms & Clustered Shading.
 date:   2018-12-02 23:13:40
 description: Introducing the background and concepts needed to understand the subject and taxonomy of efficient shading algorithms.
 ---
@@ -13,9 +13,6 @@ I read it not too long ago, when I was halfway done building my renderer &mdash;
 
 Three weeks, [12 articles](https://github.com/Angelo1211/HybridRenderingEngine/wiki/References#11-shading-algorithm-overviews), 3 papers[[1]](http://www.cse.chalmers.se/~uffe/clustered_shading_preprint.pdf)[[2]](https://takahiroharada.files.wordpress.com/2015/04/forward_plus.pdf)[[3]](http://www.cse.chalmers.se/~uffe/ClusteredWithShadows.pdf) and [one](http://15418.courses.cs.cmu.edu/tsinghua2017/) and a [half](https://www.youtube.com/watch?v=F620ommtjqk&list=PLGvfHSgImk4aweyWlhBXNF6XISY3um82_) online courses later I can confirm, yep, it's still not as bad as shadow mapping.
 
-So let's get to it! I'll start by summarizing Clustered shading and briefly covering all the concepts that you need to be familiar with to implement this technique. Feel free to skip a section if you're already comfortable with its subject!
-
-
 ### **TL;DR**
 ---
 <p></p>
@@ -24,16 +21,50 @@ So let's get to it! I'll start by summarizing Clustered shading and briefly cove
 ---
 *You can fit this in a tweet!*
 
+So let's get to it! I'll start by summarizing Clustered shading and briefly covering all the concepts that you need to be familiar with to implement this technique. Feel free to skip a section if you're already comfortable with its subject!
+
 <br/>
 
-### **Rendering Algorithms**
+### **Table of Contents**
 ---
-*...versatile **rendering algorithm** capable of...*
-*...for both **forward and deferred shading systems**. It...*
+<p></p>
+*  Efficient Rendering Algorithms
+    * BkahjJ
+
+*  Clustered Deferred/Forward Shading
+
+---
+<p></p>
+# ***Part 1:***
+<p></p>
+## Efficient Rendering Algorithms
+<p></p>
+---
+*...versatile **rendering algorithm** capable...*
+*...an **efficient** and...*
+*...a **list of lights** intersecting...*
+*...both **forward and deferred shading systems**...*
+*...the **view frustum** into a 3D grid ...*
 
 Clustered shading belongs to a family of rendering algorithms known as **Efficient Shading Algorithms.** This category refers to rendering methods that improve upon the classical Forward rendering implementation and include: Deferred rendering, Tiled forward/deferred( AKA Forward+ ) and of course Clustered shading. 
 
-#### Review of Forward Shading
+### **Forward Shading Review**
+
+<script>
+    $( document ).ready( function(){
+        var cw = $('#forward1').width() * 0.80 ;
+        $('#forward1').css({'height':cw  +'px'});
+        $('#overdraw1').css({'height':cw  +'px'});
+        $('#zpre1').css({'height':cw  +'px'});
+        $('#def1').css({'height':cw  +'px'});
+        $('#tiled1').css({'height':cw  +'px'});
+        $('#depthDisc1').css({'height':cw * 2.1  +'px'});
+        $('#zslice1').css({'height':cw  +'px'});
+        $('#clus1').css({'height':(cw * 2.1) +'px'});
+    });
+</script>
+ 
+<iframe id="forward1" class ="slideshow-iframe" src="{{ site.baseurl }}/slides/forward.html" style = "width: 100%;" frameborder="0" scrolling="no"  ></iframe>
 
 ``` c#
 for object in scene
@@ -42,7 +73,13 @@ for object in scene
             object.shade(light)
 ```
 
+
 The pseudocode above could be found inside a naïve **multi-pass** classical Forward renderer. This approach is quite simple and elegant and would probably fair fine for scenes with few objects, simple materials and a couple of lights. Yet, rendering costs start to climb fast if you increase the quantity or complexity of any of these components. For example, if you have hundreds of ligths, shading for each object will incur a penalty due to the parsing of the list of lights and the overhead from repeated draw calls. And if that isn't bad enough, you'll find that eventually, even in scenes of apparent trivial complexity there will be objects that get in front of one another. This will cause something called **overdraw** which describes the phenomenon best understood by looking at an [episode of Bob Ross.](https://www.youtube.com/watch?v=0FYfo94qefg) &mdash; this one's pretty good, it'll teach you about planar reflections! &mdash; Throughout the show Bob will paint these beautiful trees and mountains and then shortly after, proceed to paint right over them with a rock in the foreground. This is fine in oil paintings, where a frame rate of *0.0006fps* won't get you fired, but in Real-Time rendering we're aiming for, well, real-time frame rates in the range of 30fps to 60fps. 
+
+
+<div>
+ <iframe id="overdraw1" class ="slideshow-iframe" src="{{ site.baseurl }}/slides/overdraw.html" style = "width:100%" frameborder="0" scrolling="no"  ></iframe>
+</div>
 
 Overdraw is a specially egregious problem in Forward rendering since you might end up issuing thousands of pixels worth of fragment shader calls that end up being thrown away when an object closer to the viewer gets drawn right on top of them. So how do we fix this issue? Well, I didn't come up with the [original solution](https://sites.google.com/site/richgel99/home), but I'd like to think that I could of, and I believe so could you! So let's take a second and do a quick
 exercise, go back and look at the pseudocode above. Given these two facts can you come up with an idea that would be the beginnings of Deferred Rendering and a simple solution to overdraw? 
@@ -50,7 +87,7 @@ exercise, go back and look at the pseudocode above. Given these two facts can yo
 * **Fact 1**: lighting is usually much more expensive to calculate than visibility.
 * **Fact 2**: modern GPU's let us save and read data directly in the form of textures.
 
-#### Deferred Shading Techniques
+### **Deferred Shading Basics**
 
 image...
 
@@ -58,8 +95,16 @@ So, the key insight I was looking for is that **there is no reason why you can't
 that affected a pixel in some way, normally by either recording their depth or their position at that given pixel in a texture. We can summarize this in pseudocode like so:
 
 
+
+<div>
+<iframe id="zpre1" class ="slideshow-iframe" src="{{ site.baseurl }}/slides/zprepass.html" style = "width:100%" frameborder="0" scrolling="no"  ></iframe>
+</div>
+
+
+
+
 ``` c#
-texture depthTexture = 0.0;
+texture depthTexture
 for object in scene
     if object.isVisible() && (object.depth < depthTexture.depth)
        depthTexture.writeDepth(object)
@@ -70,21 +115,107 @@ for object in scene
             object.shade(light)
 ```
 
+
 This is usually known as a **Z-prepass**, and it essentially **decouples** the process of determining the visibility of an object from the act of shading it. This concept of decoupling is central to all efficient shading algorithms &mdash; some would claim that it also applies to efficient programs in general&mdash; and we'll see how each one approaches it in it's own unique way, including clustered shading, which we'll get to soon enough, I promise.  
 
-**Deferred rendering**, extends the main concept of the **Z-prepass** even further by not only writing the depth or position of a given object to textures, but also recording all of the attributes of an object that are used in shading. That includes various things such as the surface normal, the objects' albedo/color or it's specular/shininess. There really is no limit to what you can write in textures beyond the texture memory of the GPU itself. The collection of these textures
-is commonly referred to as the **G-Buffer**. Once again I have to plug [Adrian Courreges's Blog](http://www.adriancourreges.com/blog/2017/12/15/mgs-v-graphics-study/) where he goes into more detail about Deferred Rendering in his post about MGS V.
+**Deferred rendering**, extends the main concept of the **Z-prepass** even further by not only writing the depth or position of a given object to textures, but also recording all of the attributes of an object that are used in shading. That includes various things such as the surface normal, the objects' albedo/color or it's specular/shininess. There really is no limit to what you can write in textures beyond the texture memory of the GPU itself. The collection of these textures is commonly referred to as the **G-Buffer** and we'll use it for the lighting pass directly instead of referring to the source objects. Once again I have to plug [Adrian Courreges's Blog](http://www.adriancourreges.com/blog/2017/12/15/mgs-v-graphics-study/) where he goes into more detail about Deferred Rendering in his post about MGS V. Let's update our pseudocode algorithm to resemble a simple deferred implementation:
 
-Something worth noting is that both in a **Z-prepass** and in **Deferred rendering** you haven't actually eliminated overdraw. While filling the G-Buffer or your depth texture you'll still end up writing over them multiple times. However, this is *generally* not a problem anymore since the cost of accessing the shading attributes and rewriting memory is much cheaper than performing a full lighting pass. 
 
-It goes without saying &mdash;yet I will anyway&mdash; that these algorithms are only really worth implementing in projects where rendering is becoming a bottle neck and there are concerns about performance and maintaning a stable frame rate. There ain't no such thing as a free lunch, and there are side-effects to **all** of these algorithms that will add a constant overhead to the rendering process. It really might not be worth it until you are processing some hefty amount of data per frame, so make sure to consulte your ~~[primary care phycisian](https://renderdoc.org/)~~ profiler tools to assess the location of your current bottleneck.  
-
-At their core, all of these algorithms ai
+<div>
+<iframe id="def1" class ="slideshow-iframe" src="{{ site.baseurl }}/slides/deferred.html" style = "width:100%" frameborder="0" scrolling="no" ></iframe>
+</div>
 
 
 
-Of It was first introduced by [Ola Olsson et al. in Clustered Deferred and Forward Shading](http://www.cse.chalmers.se/~uffe/clustered_shading_preprint.pdf)
+``` c#
+Gbuffer buffer
+for object in scene
+    if object.isVisible() && (object.depth < buffer.depth)
+       buffer.writeShadingAttributes(object)
 
+for light in scene
+    buffer.shade(light)
+```
+
+Something worth noting is that both in a **Z-prepass** and in **Deferred rendering** you haven't actually eliminated overdraw, you've just smartly allowed for it to happen at a point where it doesn't affect performance as much. Because in the process of filling in the G-Buffer or your depth texture you'll still end up writing over them multiple times. However, this is *generally* not a problem anymore since the cost of accessing the shading attributes and rewriting memory is much cheaper than performing a full lighting pass. Pretty neat right?
+
+Yet that does not mean memory access is cheap. In fact, if you were to go ahead and implement Deferred rendering as I've explained it so far, the performance gains would be pretty unremarkable, or in the case of large G-Buffers and many lights, performance would probably be worse. Even though you might have vanquished overdraw you have added a new cost to the shading & light accumulation step: reading the G-Buffer. Reading or writing memory in your tightest and most inner loop is always bad news, and even though GPU's have ways to hide the costs of memory reads, given enough lights, those latency hiding techniques will quickly become useless. If you're interested in understanding why [Prof. Fatahalian's course on Paralallel Computer architectures](http://15418.courses.cs.cmu.edu/tsinghua2017/lecture/basicarch) covers the modern Multi-core processor architecture, both for CPU's and GPU's, and explains memory latency and memory bandwidth in the best way I've found yet. 
+
+> #### Small Detour: How slow are texture reads anyway?
+> ---
+> Texture reads are essentially memory reads and **reading memory is always slow**. How slow you ask? Well, there is no exact answer since it varies from architecture to architecture, but it is generally considered to be about ~200x slower than a register operation, which for the sake of argument let's assume takes ~0.5ns. A nanosecond is a **billionth** of a second, hardly a span of time we experience in our day to day lives. Let's scale it up a bit and imagine that register ops took about a minute instead. Say you're planning an evening with friends and invite them over to watch your favorite movie, The Lord of the Rings: The Fellowship of the ring! (extended edition of course, clocking at about 3h20m). As soon as the movie starts you ask one of your friends (CPU) to go to the fridge(main memory) and grab you a drink(texture read), by the time he gets back the credits start rolling and the drink he's carrying is most definitely warm. 
+
+Before moving on to the next section let's take a moment and repeat the same exercise we made at the end of the Forward Shading section. Look at our pseudocode above and ask yourself, given the fact below, are there are any other optimizations we could do that would help improve performance by reducing G-Buffer calls?
+
+* **Fact 1**: Real light sources follow the inverse square law, which means that their brightness drops quickly as a function of distance, effectively to the point of being imperceptible. 
+
+### **Tiled Shading & Forward+**
+image...
+
+This time, I wanted to get the gears turning and have you thinking about light, and about how it behaves in the context of distance. Thankfully, this is a very easy concept to grasp since we all experience it during our day to day activities. If you're reading this article there's a pretty high chance you're reading it on a desk. And resting on that desk &mdash; which I'm also willing to wager you should tidy up &mdash; there's probably a lamp who's only job is to shine on the writing
+surface and its immediate surroundings. If you were tasked with defining how far the reach of your desk light was using the volume of a sphere centered at the light source, how far would it go? If the room you're in is pretty small, you'd probably say it lights the whole thing up, which if you have a pretty big light source might make sense, but if you have a dim light might make you scratch your heade. This is the result of indirect illumination which occurs when the light bounces of other
+surfaces and makes those act like very dim light sources themselves, this is another fascinating topic know as [GLobal Illumination](https://www.scratchapixel.com/lessons/3d-basic-rendering/global-illumination-path-tracing/introduction-global-illumination-path-tracing) which could be the subject of whole books, so we'll have to leave it there for now. Essentially the core realization is that after a certain point we can't perceive the effects of a light source anymore, so we can change our
+mental model of lights and effectively, **we can treat light as if it had a finite volume of influence**. This realization effectively allows us to perform "light collision detection" to identify what are the surfaces that actually get affected by the light and we shade only those. 
+
+pseudocode of screen space bounds
+
+
+
+<iframe id="tiled1" class ="slideshow-iframe" src="{{ site.baseurl }}/slides/tiled.html" style = "width:100%" frameborder="0" scrolling="no" ></iframe>
+
+
+Show how there's a problem now if you check for each sphere interesection for each light, yes you'll be calling the pixel shader less, but you'll still be reading from the gbuffer each accumulation step and that is bad, can we do any better?
+
+<iframe id="depthDisc1" class ="slideshow-iframe" src="{{ site.baseurl }}/slides/depthDisc.html" style = "width:100%" frameborder="0" scrolling="no" ></iframe>
+
+Going back to the ideal case, ideally, you'd know what lights affect every pixel ahead of time. and instead of repatedly reading the gbuffer you'd read it only once and  but keeping a giant list of lights for each pixel might be redundant as well as not be desireable since each GPUthread would be evaluating different lights, screwing up consistency. If you wnat ot keep warp execution coherent it's better if oyu get it to be the size of a warp. explain gpu a bit more etc etc 
+
+
+
+update pseudocode to use tiled 
+
+remind that this method is also valid with forward and introduce forward + and say how you can use depth pre-pass to avoid overdraw ( which kind of muddies the waters as if it is really a forward method anymore or just a very thing gbuffer ) 
+
+showcase the same thing but in forwaard
+
+
+now introduce the idea that yes, we can now manage many lights but there are some problems with the fact thta we have used tiles to list lights, for one, if yu have large depth discontinuities oyu migth be including lights taht are further away from your point whcih you did not care about. Also any small movements might create a sudden change in the view direction that creates a jump in the depth discontinuity and now you're including lights from a mile away on your list of lilghts
+stuff
+
+
+
+
+Think as an exercise what we could do isntead
+
+fact 1: we know the position and size of the volume of our view space at the beginning of every frame
+fact 2: we also have set a near and far distance plane for our camera which encompasses the volume completely
+fact 2: we haven't even gotten to clustered shading yet
+
+### **Clustered Shading**
+
+
+<iframe id="clus1" class ="slideshow-iframe" src="{{ site.baseurl }}/slides/clustered.html" style = "width:100%" frameborder="0" scrolling="no"></iframe>
+
+
+It was first introduced by [Ola Olsson et al. in Clustered Deferred and Forward Shading](http://www.cse.chalmers.se/~uffe/clustered_shading_preprint.pdf)
+
+The idea that I'm looking for here is to get you to start tthinking about the shape of the view frustum and how that could come in handy for tiled. Specifically that it is a 3D volume that we have subdivided into 2D tiles, but those 2D tiles have depth which make them mini frustums that are very elongated. So what if instead of having to do a z prepass givne that we already know the volume the camera will ahve we just subdivide that into small cube volumes and perform light
+culling with that instead 
+
+we have now obviated the need for a z prepass (although most likely you'll need it anyway) and created a list of light for each cluster considerally reducing the size and creating better view dependency
+
+emphasized that the tiled/clustered forawrd deferred difference is because the algorithms are trying to tackle specific problems taht come from rendering in our basic model
+
+notice the process we've followed by looking at the forward algorithm  and slowly building an intuition of what places would be a bottle neck and focused optimiaiton on that
+
+It goes without saying &mdash;yet I will anyway&mdash; that these algorithms are only really worth implementing in projects where rendering is becoming a bottle neck and there are concerns about performance and maintaning a stable frame rate. There ain't no such thing as a free lunch, and there are side-effects to **all** of these algorithms that will add a constant overhead to the rendering process. It really might not be worth it until you are processing some hefty amount of data per frame, so make sure to consult your ~~[primary care phycisian](https://renderdoc.org/)~~ profiler tools to assess the location of your current bottleneck.  
+
+give pros and cons table
+
+Debate table a bit then
+
+Now this has been a 1000ft overview of efficient rendering algorithms and the process to follow to discover it, as you can imagine there's a lot more to it than just this. (aT least three weeks worth of content) So you should check these sources out if you want to learn more about it and further your understsanding beyond usrface level stuff. Next we will move into describing clustered shading in more detail and describing some of the implementation steps I made in my engine and what
+I've read about other engines
 
 
 #### Further reading:
@@ -95,60 +226,87 @@ Of It was first introduced by [Ola Olsson et al. in Clustered Deferred and Forwa
 * [Forward vs Deferred vs Forward+ by Jeremiah van Oosten](https://www.3dgep.com/forward-plus/)
 * [The real-time rendering continuum by Angelo Pesce](http://c0de517e.blogspot.com/2016/08/the-real-time-rendering-continuum.html)
 * [Chapter 20: Efficient Shading in Real Time Rendering 4th Edition](http://www.realtimerendering.com/)
+* [Hiding Stalls with multi-threading by Prof. Kayvon Fatahalian](http://15418.courses.cs.cmu.edu/tsinghua2017/lecture/basicarch/slide_052)
+* [Latency numbers every programmer should know by HellerBarde](https://gist.github.com/hellerbarde/2843375)
+* [Deferred Shading Optimizations By Nicolas Thibieroz](http://twvideo01.ubm-us.net/o1/vault/gdc2011/slides/Nicolas_Thibieroz_Programming_Deferred_Shading_Optimizations.pps)
+* [Forward+: Bringing deferred lighting to the next level by Takahiro Harada et al.](https://takahiroharada.files.wordpress.com/2015/04/forward_plus.pdf#page=2&zoom=100,0,78)
 
 
-### **Measuring Performance**
 ---
-*Cluster shading is an **efficient** and...*
-
-So how should we make a decision about which algorithm we should choose for our renderer? What makes an algorithm more "optimal" than another one?  As engineers these are always  
-
-#### Further reading:
-* [Chapter 20: Efficient Shading in Real Time Rendering 4th Edition](http://www.realtimerendering.com/)
-
-### **Unified Lighting Solution**
+<p></p>
+# ***Part 2:***
+<p></p>
+## Clustered Hybrid Shading
+<p></p>
 ---
-*... capable of **unified lighting** for both...*
+*...and **versatile** rendering ...*
+*... and **quickly computes** a ...*
+*...a **3D grid of blocks or "clusters"** and ...*
+*...each **Active Volume**...*
+*... capable of **unified lighting** for ...*
+
+Explain what we're doing here, what the plan is and how we've subdividing the work based on the paper's explanation of it and my own implementation of the technique
+
+### **Building the Cluster Grid**
+<p></p>
+
+Explain the data structure itself, how it is defined on the paper, then define it how you did it in terms of AABB boxes and all. 
+
+Explain scatter vs gather or whatever that is  
+
+Explain the basics of writing a compute shader, basically mental models that you need to have
+
+Explain exponential slicing and explain the pros and cons
+
+Shwo pseudocode
 
 
 
-#### Further reading:
-* [Tiled and Clustered Forward Shading Supporting Transparency and MSAA Olsson et al.](https://www.researchgate.net/publication/254463291_Tiled_and_Clustered_Forward_Shading_Supporting_Transparency_and_MSAA)
+<iframe id="zslice1" class ="slideshow-iframe" src="{{ site.baseurl }}/slides/zslices.html" style = "width:100%; background: blue" frameborder="0" scrolling="no" ></iframe>
 
-### **View Space**
----
-*...divides the **view frustum** into a 3D grid ...*
 
-#### Further reading:
 
-### **Clusters**
----
-*...into a **3D grid of blocks or "clusters"** and ...*
 
-#### Further reading:
+Show the picture of the grids to show how it ends up looking from your point of view
 
-### **Active Volumes Determination**
----
-*...intersecting each **Active Volume**...*
+Explain that you have to do this all on the gpu to be effective, since the whole point is that you just reduce transferring stuff abck and forth and it is way faster todo this in parallel
 
-#### Further reading:
 
-### **Light Culling**
----
-*...computes a **list of lights** intersecting...*
+### **Efficient Light Culling**
+<p></p>
 
-#### Further reading:
+Explain the light culling step how you performed it
 
-### **Optimizations**
----
-*... and **quickly computes** a list ...*
+show some pseudocode
 
-#### Further reading:
-* [Volume Tiled Forward Shading by Jeremiah Van Oosten](https://www.3dgep.com/volume-tiled-forward-shading/)
+explain the benefits again of culling thisway
+
+explain that it is essentially a spatial grouping of lights
+
+
+maybe cute animation of the ball entering the sphere and getting added to the list of lights
+
+### **Advanced Optimization Techniques**
+<p></p>
+
+Explain that this is the more advanced stuff
+
+that there is obviously still much to do and that there are always more optimizations that can be done
+
+explain the normal one and the bvh oen very briefly and link to the van oosten link
+
+also show van oosten video
+
+explain why you would even want this many lights, what you could do with it
+
+explain that you plan to implement something like this at a future time of your project since you're not too familiar but there are places you can go look at 
+
+Explain you can even implement something for shadows like doom did or even use environment probes and decals in your cluster system
+
+
 
 ### **Successful Implementations**
----
-*...efficient and **versatile** rendering algorithm...*
+<p></p>
 
 So I would be remiss not to end this post by sharing some great presentations from other way more experienced devs where they discuss their own versions of Clustered shading. As you can imagine, no two of them are alike, both in the nitty-gritty details of their implementations and in the large scale differences found in the genres of the games they make. It speaks volumes of the flexibility of this algorithm and hints towards a future where hybrid forward/deferred engines are the norm for AAA products that demand the highest visual fidelity. 
 
@@ -158,6 +316,12 @@ Also, hey, I've technically implemented a Clustered Renderer too! If you've forg
 * [(Doom 2016)The devil is in the Details by Tiago Sousa and Jean Geffrey](https://www.slideshare.net/TiagoAlexSousa/siggraph2016-the-devil-is-in-the-details-idtech-666?next_slideshow=1)
 * [Practical Clustered Shading by Emil Persson](http://www.humus.name/Articles/PracticalClusteredShading.pdf)
 * [Clustered Forward Rendering and Anti-aliasing in 'Detroit: Become Human' by Ronan Marchalot](https://twvideo01.ubm-us.net/o1/vault/gdc2018/presentations/Marchalot_Ronan_ClusteredRenderingAnd.pdf)
+
+#### Further reading:
+* [Chapter 20: Efficient Shading in Real Time Rendering 4th Edition](http://www.realtimerendering.com/)
+* [Volume Tiled Forward Shading by Jeremiah Van Oosten](https://www.3dgep.com/volume-tiled-forward-shading/)
+* [Practical Clustered Shading By Emil Persson](http://newq.net/dl/pub/SA2014Practical.pdf)
+* [Tiled and Clustered Forward Shading Supporting Transparency and MSAA Olsson et al.](https://www.researchgate.net/publication/254463291_Tiled_and_Clustered_Forward_Shading_Supporting_Transparency_and_MSAA)
 
 ---
 
