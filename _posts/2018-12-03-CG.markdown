@@ -59,8 +59,8 @@ Clustered shading belongs to a family of rendering algorithms known as **Efficie
         $('#def1').css({'height':cw  +'px'});
         $('#tiled1').css({'height':cw  +'px'});
         $('#depthDisc1').css({'height':cw * 2.1  +'px'});
-        $('#zslice1').css({'height':cw  +'px'});
         $('#clus1').css({'height':(cw * 2.1) +'px'});
+        $('#zslice1').css({'height':cw  +'px'});
     });
 </script>
  
@@ -262,7 +262,7 @@ Shwo pseudocode
 
 
 
-<iframe id="zslice1" class ="slideshow-iframe" src="{{ site.baseurl }}/slides/zslices.html" style = "width:100%; background: blue" frameborder="0" scrolling="no" ></iframe>
+<iframe id="zslice1" class ="slideshow-iframe" src="{{ site.baseurl }}/slides/zslices.html" style = "width:100%" frameborder="0" scrolling="no" ></iframe>
 
 
 
