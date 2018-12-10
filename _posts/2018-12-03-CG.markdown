@@ -49,7 +49,7 @@ So let's get to it! I'll start by summarizing Clustered shading and briefly cove
 Clustered shading belongs to a family of rendering algorithms known as **Efficient Shading Algorithms.** This category refers to rendering methods that improve upon the classical Forward rendering implementation and include: Deferred rendering, Tiled forward/deferred( AKA Forward+ ) and of course Clustered shading. 
 
 ### **Forward Shading Review**
-
+stuf
 <script>
     $( document ).ready( function(){
         var cw = $('#forward1').width() * 0.80 ;
@@ -65,7 +65,7 @@ Clustered shading belongs to a family of rendering algorithms known as **Efficie
 </script>
  
 <iframe id="forward1" class ="slideshow-iframe" src="{{ site.baseurl }}/slides/forward.html" style = "width: 100%;" frameborder="0" scrolling="no"  ></iframe>
-
+asdf
 ``` c#
 for object in scene
     if object.isVisible()

@@ -10,7 +10,6 @@ github_username:  Angelo1211
 
 # Build settings
 markdown: kramdown
-
 highlighter: rouge
 
 # Pagination
