@@ -1,0 +1,56 @@
+
+* First Edit
+<2018-12-13 jue>
+** Intro
+*** P1
+**** DONE Fix
+     CLOSED: [2018-12-13 jue 21:52]
+**** finally final
+**** Shorten intro?
+**** Linux thing unnecessary 
+*** P2
+**** DONE Fix
+     CLOSED: [2018-12-13 jue 21:52]
+**** Great entry point?
+**** Already send them to leave
+**** Merge with the first paragraph, too long maybe not necessary as an intro
+*** P3
+**** DONE Fix
+     CLOSED: [2018-12-13 jue 21:52]
+**** too long, 80%
+**** The dialogue part is completely uneccessary
+*** P4
+**** DONE Fix 
+     CLOSED: [2018-12-13 jue 21:52]
+**** Cool but not necessary
+*** P5
+**** DONE Fix
+     CLOSED: [2018-12-13 jue 21:52]
+**** explains the reasoning
+**** soul so to speak 
+**** Part 2
+*** TLDR
+**** DONE Fix
+     CLOSED: [2018-12-13 jue 21:52]
+**** Unified lighting not discussed
+**** or, clusters, 
+*** REVIEW
+**** DONE fix last paragraph
+     CLOSED: [2018-12-14 vie 02:07]
+** Part 1
+*** TODO Intro
+*** TODO Forward shading
+*** TODO Deferred Shading
+*** TODO Tiled Shading Forward +
+**** Removes the bandwidth bottleneck and isntead makes it compute bound
+*** TODO Clustered shading 
+*** TODO Outro
+** Part 2
+*** TODO Building cluster grid 
+*** TODO Determining Active Clusters
+*** TODO Light culling Methods
+*** TODO Optimization techniques
+*** TODO Succesful Implementations 
+*** TODO Outro 
+
+   

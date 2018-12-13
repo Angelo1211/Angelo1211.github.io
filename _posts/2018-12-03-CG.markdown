@@ -2,7 +2,7 @@
 layout: post
 title:  A Brief Primer On Efficient Rendering Algorithms & Clustered Shading.
 date:   2018-12-02 23:13:40
-description: Introducing the background and concepts needed to understand the subject and taxonomy of efficient shading algorithms.
+description: An introduction to basic efficient rendering concepts and an overview of my Clustered Shading implementation. 
 ---
 
 ### **Table of Contents**
@@ -23,27 +23,19 @@ description: Introducing the background and concepts needed to understand the su
 
 ---
 <p></p>
-For the past three months I’ve been fully immersed in the world of computer graphics by working full-time on a 3D renderer built with OpenGL. I’m pretty happy with how it’s coming along so far and although there’s still a handful of features I’d like to include, I finally feel comfortable enough with the final result to share with the world in its current semi-presentable state.I've uploaded it to GitHub and you can [check it out here](https://github.com/Angelo1211/HybridRenderingEngine).
-It is currently only available on Windows platforms, but who knows, I might get it to work on Linux at some point soon, fingers crossed.
+For the past three months I’ve been working on a Clustered Renderer in OpenGL with the aim of building a framework to experiment with deferred and forward shading techniques. Feel free to [check it out on GitHub.](https://github.com/Angelo1211/HybridRenderingEngine) I think it's pretty neat, but I also might be a bit biased. Originally, my plan was to write a brief account detailing how I implemented clustered rendering in my engine. However, as the writing went on I increasingly found myself wanting to refer to other efficient algorithms as a way to contextualize the benefits of Clustered Shading. Those references quickly grew to become a significant portion of the text, so I decided to split it into two parts.
 
-It comes with all the familiar bells and whistles you've probably come to expect from the multitude of hobby renderers out there: shadow mapping, MSAA, normal mapping - you name it, if it has an online tutorial it's probably in there. However, among the sea of entry level features there's one in particular that I feel is not, so to speak, "stock", and of which I'm proud enough to have convinced myself that it is worthy of its own post. I'm of course talking about my own personal implementation of **Clustered shading**. An algorithm which I first encountered in [Adrian Courreges' Doom (2016) - Graphics Study](http://www.adriancourreges.com/blog/2016/09/09/doom-2016-graphics-study/), which if you haven't already read, I highly recommend you do before continuing, since it's simply a fascinating read, and his explanation of clustered shading is a great entry point.
-
-I read it not too long ago, when I was halfway done building my renderer &mdash; although at the time I would have told you I was 80% done &mdash; and at a point where I felt pretty great about myself. I had finally left the dark, dark, hopeless pit that is getting a "correct" shadow mapping implementation working, and it certainly felt like all was going to be smooth sailing from now on. Maybe that's why my first thoughts when I read the section on Clustered shading were something along the lines of: "hmm, this seems pretty neat! I wonder how hard it REALLY could be to implement? I mean, it's kind of like culling but with some extra steps and all done on the GPU. I know how to write regular shaders, compute shaders can't be so different! Shouldn't take too long."
-
-Three weeks, [12 articles](https://github.com/Angelo1211/HybridRenderingEngine/wiki/References#11-shading-algorithm-overviews), 3 papers[[1]](http://www.cse.chalmers.se/~uffe/clustered_shading_preprint.pdf)[[2]](https://takahiroharada.files.wordpress.com/2015/04/forward_plus.pdf)[[3]](http://www.cse.chalmers.se/~uffe/ClusteredWithShadows.pdf) and [one](http://15418.courses.cs.cmu.edu/tsinghua2017/) and a [half](https://www.youtube.com/watch?v=F620ommtjqk&list=PLGvfHSgImk4aweyWlhBXNF6XISY3um82_) online courses later I can confirm, yep, it's still not as bad as shadow mapping.
-
-But, in an effort to save you some of the time out of those three weeks I wanted to write an intro to Clustered shading that would explain the algorithm and some of its details in great depth. But in the process of writing it I constantly made references to some other previous algorithms to explain the benefits of Clustered. Since those references started growing to become a significant part of the article I've split this into two parts. Part one focuses only on the rendering algorithms which clustered shading is built upon and explain the reasoning behind them, what problems they're trying to solve and how they go about solving them. We'll begin with a quick summary of Clustered shading that kind of condenses the "soul" so to speak, of the algorithm and then proceed to break down each part in the proceeding sections.
-
+Part one is a high-level overview of efficient rendering techniques. It follows a simple three-act structure that will take us from classical forward shading all the way to a modern implementation of Clustered Shading. First, I'll discuss how a given algorithm renders an image. Next, I'll showcase its major shortcomings and limitations. And lastly, I'll introduce strategies to overcome those shortcomings, which will segue nicely to the next algorithm. Part two is a deep dive into my own flavor of Clustered Shading, covering all major steps of the algorithm and laying out the specifics of the code I wrote. It'll also contain some further reading on the topic written by developers who have succesfully implemented this technique in high profile games. Let's get to it!
 
 ### **TL;DR**
 ---
 <p></p>
-> *Cluster shading is an efficient and versatile rendering algorithm capable of unified lighting for both forward and deferred shading systems. It divides the view frustum into a 3D grid of blocks or "clusters" and quickly computes a list of lights intersecting each active volume.*
+> *Clustered shading is an efficient and versatile rendering algorithm capable of using both forward and deferred shading systems. It divides the view frustum into a 3D grid of blocks or "clusters" and quickly computes a list of lights intersecting each active volume.*
 
 ---
 *You can fit this in a tweet!*
 
-<br/>
+<p></p>
 
 # ***Part 1:***
 <p></p>
@@ -249,11 +241,11 @@ The table above summarizes the pros and cons of each method as we have discussed
 * [Forward vs Deferred vs Forward+ by Jeremiah van Oosten](https://www.3dgep.com/forward-plus/)
 * [The real-time rendering continuum by Angelo Pesce](http://c0de517e.blogspot.com/2016/08/the-real-time-rendering-continuum.html)
 * [Chapter 20: Efficient Shading in Real Time Rendering 4th Edition](http://www.realtimerendering.com/)
-* [Hiding Stalls with multi-threading by Prof. Kayvon Fatahalian](http://15418.courses.cs.cmu.edu/tsinghua2017/lecture/basicarch/slide_052)
 * [Latency numbers every programmer should know by HellerBarde](https://gist.github.com/hellerbarde/2843375)
 * [Deferred Shading Optimizations By Nicolas Thibieroz](http://twvideo01.ubm-us.net/o1/vault/gdc2011/slides/Nicolas_Thibieroz_Programming_Deferred_Shading_Optimizations.pps)
 * [Forward+: Bringing deferred lighting to the next level by Takahiro Harada et al.](https://takahiroharada.files.wordpress.com/2015/04/forward_plus.pdf#page=2&zoom=100,0,78)
-
+* [Parallel Computer Architecture and Programming by Prof. Kayvon Fatahalian ](http://15418.courses.cs.cmu.edu/tsinghua2017/)
+* [Clustered Deferred and Forward Shading by Ola Olsson et al.](http://www.cse.chalmers.se/~uffe/clustered_shading_preprint.pdf)
 
 ---
 <p></p>
@@ -266,7 +258,6 @@ The table above summarizes the pros and cons of each method as we have discussed
 *... and **quickly computes** a ...*
 *...a **3D grid of blocks or "clusters"** and ...*
 *...each **Active Volume**...*
-*... capable of **unified lighting** for ...*
 
 The following section consists on a more in detailed review of Clustered shading beginning with a backgorund on when it was created and it's use case. It was first introduced by Ola Olsson et al in the 2012 paper titled "Clustered deferred and forward shading" it has already been used in multiple major releases since and is now the algorithm of choice in many games and engines, as I'll show in a section below. The algorithm can be summarized in the following steps:
 
@@ -543,9 +534,10 @@ Also, hey, I've technically implemented a Clustered Renderer too! If you've forg
 * [Volume Tiled Forward Shading by Jeremiah Van Oosten](https://www.3dgep.com/volume-tiled-forward-shading/)
 * [Practical Clustered Shading By Emil Persson](http://newq.net/dl/pub/SA2014Practical.pdf)
 * [Tiled and Clustered Forward Shading Supporting Transparency and MSAA Olsson et al.](https://www.researchgate.net/publication/254463291_Tiled_and_Clustered_Forward_Shading_Supporting_Transparency_and_MSAA)
+* [Adrian Courreges' Doom (2016) - Graphics Study](http://www.adriancourreges.com/blog/2016/09/09/doom-2016-graphics-study/)
+* [Efficient Virtual Shadow Maps for Many Lights by Ola Olsson et al.](http://www.cse.chalmers.se/~uffe/ClusteredWithShadows.pdf)
 
 ---
-
 *Psst, hey you! If you've gotten this far I'd like to thank you for taking the time to read this post. I hope you enjoyed reading it as much as I did writing it. Just letting you know that I'm currently looking for a Graphics related position. If you're interested or know of any opportunities, I'd appreciate it if you'd let me know. Feel free to check out my about page for a choice selection of social media where you can reach me!*
 
 *Any questions? Dead links? Complaints to management? My email is angelo12@vt.edu but you can also find me on twitter at [@aortizelguero](https://twitter.com/aortizelguero).*
