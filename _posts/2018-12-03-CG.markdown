@@ -393,6 +393,7 @@ To obtain the points on the cluster we use a line intersection to plane function
 
 {% endhighlight %}
 
+Testing github pushing from new place
 Why do we use AABB's instead of tight frustums? Well, AABBS built from the max and min points will be ever so slightly larger than the actual clusters, this ensures that there are no gaps in between the clusters. Using AABB's also allows for storage of the cluster using only 2 vec3's, one for each corner of the AABB. Which reduces bandwidth significantly. Once we have AABB's for each cluster we are ready to use it in our per-frame light culling and active cluster determination schemes. These AABB's will be valid for as long as the frustum stays within this shape. Any changes in FOV or near and far plane settings will require a full frustum reconstruction, but I think it might not be a huge deal since RenderDoc seemed to tell me this function was not too expensive in terms of performance costs.
 
 
