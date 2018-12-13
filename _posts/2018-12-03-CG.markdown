@@ -393,19 +393,41 @@ To obtain the points on the cluster we use a line intersection to plane function
 
 {% endhighlight %}
 
-Testing github pushing from new place
-Why do we use AABB's instead of tight frustums? Well, AABBS built from the max and min points will be ever so slightly larger than the actual clusters, this ensures that there are no gaps in between the clusters. Using AABB's also allows for storage of the cluster using only 2 vec3's, one for each corner of the AABB. Which reduces bandwidth significantly. Once we have AABB's for each cluster we are ready to use it in our per-frame light culling and active cluster determination schemes. These AABB's will be valid for as long as the frustum stays within this shape. Any changes in FOV or near and far plane settings will require a full frustum reconstruction, but I think it might not be a huge deal since RenderDoc seemed to tell me this function was not too expensive in terms of performance costs.
+Why do we use AABB's instead of tight frustums? Well, AABBS built from the max and min points will be ever so slightly larger than the actual clusters, this ensures that there are no gaps in between the clusters. Using AABB's also allows for storage of the cluster using only 2 vec3's, one for each corner of the AABB. Which reduces bandwidth significantly. Once we have AABB's for each cluster we are ready to use it in our per-frame light culling and active cluster determination schemes. These AABB's will be valid for as long as the frustum stays within this shape. Any changes in FOV or near and far plane settings will require a full frustum reconstruction, but I think it might not be a huge deal since RenderDoc seemed to tell me this function was not too expensive in terms of performance costs. It needs to actually be tested to see, maybe getting more clusters would screw up things not sure yet
 
 
 
 ### **Determining Active Clusters**
 <p></p>
 
+This part is rather optional, since we can just check all clusters for all lights for now. However, if you do go for this you will have to do a ZPre-pass, so this is only really worth it if you were doing this anyway for some reason. Now, I have not fully implemented this yet, it is planned for a future upgrade of my engine but a naive implementation of it in could be done like so:
+
+{% highlight c# %}
+//We will evaluate the whole screen in one compute shader 
+//so each thread is equivalent to a pixel
+void markActiveClusters(){
+    vec2 screenCord = pixelID.xy / screenDimensions.xy;
+    float z = texture(screenCord)
+    uint index = getClusterIndex(pixelID.xy, z);
+    clusterActive[index] = true;
+}
+{% endhighlight %}
+
+With this compute shader we would mark all the active clusters in a grid simply by writing to an array of bools as large as the cluster grid and then we would jsut set the flag as true if it is active at any point. To increase efficiency both Van Oosten and Olsson compact this list into a set of unique clusters to check from. This helps because it reduces the amount of clusters that need to have lights culled against them, instead of having to cull every light to every cluster, which would make the problem O(lights * clusters), remember that this was originally O(meshes * lights) so by using a coarser world grid of clusters we significantly improve performance if clusters < meshes.
 
 
+{% highlight c# %}
+//We will every cluster in one compute shader
+void buildCompactClusterList(){
+    uint tileIndex  = gl_GlobalInvocationID;
+    if(clusterActive[index]){
+       uint offset = atomicAdd(globalActiveClusterCount, 1);
+       uniqueActiveClusters[offset] = tileIndex;
+    }
+}
+{% endhighlight %}
 
-Explain that you have to do this all on the gpu to be effective, since the whole point is that you just reduce transferring stuff abck and forth and it is way faster todo this in parallel
-
+The global active cluster count variable keeps track of how many active clusters there are currently in the scene, and the unique active clusters array is a linear array with a size equal to the amount of clusters and will be rest to zero before calling this function. This way we now have an index of how many active clusters there are and we can launch computes in an indirect manner using this size. Once this is done we now have succesfully completed the active cluster and unique list of cluster determination step and we can move to light culling.
 
 ### **Light Culling Methods**
 <p></p>
