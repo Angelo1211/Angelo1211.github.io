@@ -72,8 +72,10 @@ It goes without saying &mdash;yet I will anyway&mdash; that some of these algori
         $('#tiled1').css({'height':cw  +'px'});
         $('#depthDisc1').css({'height':cw * 2.1  +'px'});
         $('#clus1').css({'height':(cw * 2.1) +'px'});
+        $('#clus2').css({'height':(cw * 2.1) +'px'});
         $('#zslice1').css({'height':cw  +'px'});
         $('#zslice2').css({'height':cw  +'px'});
+        $('#video1').css({'height':cw  +'px'});
     });
 </script>
  
@@ -413,6 +415,19 @@ void markActiveClusters(){
 }
 {% endhighlight %}
 
+<p></p>
+
+{% highlight c# %}
+uint getClusterIndex(vec3 pixelCoord){
+    // Using equation (3) from the cluster determination section
+    clusterZVal       = getDepthSlice(pixelCoord.z);
+    uvec3 clusters    = uvec3( uvec2( pixelCoord.xy / screenDimensions.xy ), zTile);
+    uint clusterIndex = clusters.x +
+                        screenDimensions.x * clusters.y +
+                        (screenDimensions.x * screenDimensions.y) * clusters.z;
+    return clusterIndex;
+}
+{% endhighlight %}
 With this compute shader we would mark all the active clusters in a grid simply by writing to an array of bools as large as the cluster grid and then we would jsut set the flag as true if it is active at any point. To increase efficiency both Van Oosten and Olsson compact this list into a set of unique clusters to check from. This helps because it reduces the amount of clusters that need to have lights culled against them, instead of having to cull every light to every cluster, which would make the problem O(lights * clusters), remember that this was originally O(meshes * lights) so by using a coarser world grid of clusters we significantly improve performance if clusters < meshes.
 
 
@@ -432,21 +447,79 @@ The global active cluster count variable keeps track of how many active clusters
 ### **Light Culling Methods**
 <p></p>
 
-Explain the light culling step how you performed it
+So because I think this visualization looks pretty cool I'd like to include it again so we can discuss it in some more detail.
 
-show some pseudocode
+<iframe id="clus2" class ="slideshow-iframe" src="{{ site.baseurl }}/slides/clustered.html" style = "width:100%" frameborder="0" scrolling="no"></iframe>
 
-explain the benefits again of culling thisway
+So the light culling compute shader is much larger and would not fit properly in this post and make it much larger than it already is, so [here's a link](https://github.com/Angelo1211/HybridRenderingEngine/blob/master/assets/shaders/ComputeShaders/clusterCullLightShader.comp) At this point, remember, we have a list of active clusters, their AABB's and a list of lights in the scene. With this and a know radius of effect of a light we can simply perform collision detection in parallel for each light against each active cluster. The data structure used is somewhat convoluted, so I won't cover it in much detail. The main idea is something like this:
 
-explain that it is essentially a spatial grouping of lights
+* DS1: **Cluster Grid Light list** (size of numClusters):
+    * Offset to beginning of light Index DS
+    * Number of lights in cluster
+* DS2: **Light Index List** (size of numClusters * worst case scenario light per cluster (100)**
+    * Index to scene light list
+* DS3: **Scene light list** (size of number of lights in scene)
+    * Struct of point lights
+       * Position
+       * Color
+       * Enabled
+       * Range 
 
+These data structures are necessary to perform the checks in parallel effectively. What essentially ends up happeneing is that lights get grouped spatially and their indexes get added to the light index list.
 
-maybe cute animation of the ball entering the sphere and getting added to the list of lights
+In pseudocode the process goes something like this, and warning, it's kind of hard to follow because I was looking for max performance by interchangeably using the same variables to mean different things in different contexts, for example although batch refers to a batch of lights it can also refer to a batch of clusters. I'm sorry but this is the best I could come up with that was fast. 
 
+{% highlight c# %}
+// This is the gist of what is happening in the compute shader, but simplified a bit
+void main(){
+    for cluster in scene{
+        for light in scene {
+            localLightArray[100];
+            localLightCount = 0;
+           
+
+            // Add to a cluster local list of lights
+            if light.enabled == 1{
+                if light in cluster{
+                    localLightArray[lightCount]  = light;
+                    localLightCount++;
+                }
+            }
+        }
+        
+        //Make sure all clusters have finished evaluating 
+        //all lights at the same time
+        barrier();
+        
+        //The atomic addition to the global light count will return
+        //the previous value before adding, we can use this as an 
+        //offset into the global light index list
+        offset = atomicAdd(globalLightCount, localLightCount); 
+        
+        //For each light in the local list add it sequencially to the
+        //global light index list starting from the offset 
+        for index in range(0, localLightCount){
+            globalLightIndexList[offset + index] = localLight[index];
+        }
+        
+        //Fillin in the cluster grid light list with the offset and count
+        //to traverse the light index list properly
+        lightGrid[cluster].offset = offset;
+        lightGrid[clustre].count  = localLightCount
+    }
+}
+{% endhighlight %}
+
+Once this shader is run the data structures mentioned above will be filled with the values necessary for a shader to obtain teh lights that are affecting a given cluster. It can be easily accessed from the fragment shader if we include a function that can directly obtain the given cluster from a screen value and a depth, like the one we found in the cluster determination section!
 ### **Optimization Techniques**
 <p></p>
 
-Once you have a working implementation there is still much that can be done to improve performance, van oosten [link]() shows specifically how spatial optimization structures like BVH can significantly increase the light culling step to the point where up to a million lights can be used in real time performance. Olsson [link]() presents various methods that leverage the benefits of clustered shading, one of them focuses on making these many lights be shadow casting using virtual shadow mapping and another presents and alternate method of clustering using the normal at the surface instead of the world space position. 
+Once you have a working implementation there is still much that can be done to improve performance, van oosten [link](https://www.3dgep.com/volume-tiled-forward-shading/) shows specifically how spatial optimization structures like BVH can significantly increase the light culling step to the point where up to a million lights can be used in real time performance.
+
+<iframe id="video1" style="width:100%" src="https://www.youtube.com/embed/nyItqF3sM84" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+
+
+Olsson [link](http://www.cse.chalmers.se/~uffe/ClusteredWithShadowsSiggraphTalk2014.pdf) presents various methods that leverage the benefits of clustered shading, one of them focuses on making these many lights be shadow casting using virtual shadow mapping and another presents and alternate method of clustering using the normal at the surface instead of the world space position. 
 
 There are actual applications for renderers that use that many lights. Specifically in the field of global illumination, where you can fake indirect lighting by using many small lights instead. Another improvement we can make with clustered rendering is to do what DOOM 2016 did and include many different things in the clusters, not just lights but also decals and environment probes. This opens up the possibility of using this very coarse voxel grid to perform any kind of world space voxelization algorithms. 
 
