@@ -39,6 +39,18 @@
      CLOSED: [2018-12-14 vie 02:07]
 ** Part 1
 *** TODO Intro
+**** Is the warning really necessary?
+**** Core concepts:
+***** We want to discuss some specific important concepts in the topic of efficient shading
+***** Efficient rendering is needed to render nearly anything these days
+***** Impossible to get modern graphics without some form of it
+***** Specify what portion of the rendering pipeline we are trying to improve upon
+***** Explain there are other methods that also improve performance but assume we don't care about it
+***** We will be focusing on pixel shader evaluations to be exact
+***** Strip away unimportant details
+***** No free lunch and overhead
+***** Future performance trends and what kinds of algorithms we'll in the future
+***** Ending
 *** TODO Forward shading
 *** TODO Deferred Shading
 *** TODO Tiled Shading Forward +
