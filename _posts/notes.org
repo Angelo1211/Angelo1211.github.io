@@ -1,7 +1,7 @@
 
-* First Edit 
+* TODO First Edit [1/4] [25%]
 <2018-12-13 jue>
-** Intro 
+** DONE Intro 
 *** P1
 **** DONE Fix
      CLOSED: [2018-12-13 jue 21:52]
@@ -37,8 +37,9 @@
 *** REVIEW
 **** DONE fix last paragraph
      CLOSED: [2018-12-14 vie 02:07]
-** Part 1
-*** TODO Intro
+** TODO Part 1 [2/6] [33%]
+*** DONE Intro
+    CLOSED: [2018-12-14 vie 19:46]
 **** Is the warning really necessary?
 **** Core concepts [10/10] [100%]
      - [X] We want to discuss some specific important concepts in the topic of efficient shading
@@ -51,18 +52,109 @@
      - [X] No free lunch and overhead
      - [X] Future performance trends and what kinds of algorithms we'll in the future
      - [X] Ending
-*** TODO Forward shading
-*** TODO Deferred Shading
-*** TODO Tiled Shading Forward +
-**** Removes the bandwidth bottleneck and isntead makes it compute bound
-*** TODO Clustered shading 
-*** TODO Outro
-** Part 2
-*** TODO Building cluster grid 
-*** TODO Determining Active Clusters
-*** TODO Light culling Methods
-*** TODO Optimization techniques
-*** TODO Succesful Implementations 
-*** TODO Outro 
+*** DONE Forward shading [8/8] [100%]
+    CLOSED: [2018-12-15 sáb 09:49]
+    - [X] Explain the basics of forward shading
+    - [X] Explain the term of forward shadin
+    - [X] Explain where it fails
+    - [X] Explain shader program issues
+    - [X] Explain overdraw animation
+    - [X] Explain overdraw
+    - [X] Why is overdraw a problem in forward
+    - [X] Present solutions to overdraw
+*** TODO Deferred Shading [2/12] [16%]
+    - [X] Performing the visibility and shading steps separately
+    - [X] Fix pseudocode
+    - [ ] Z-Prepass
+    - [ ] Haven't eliminated overdraw
+    - [ ] G-Buffer
+    - [ ] Why go deferred if reading and writing memory is so expensive
+    - [ ] Reading and writing memory costs
+    - [ ] Small Detour about memory 
+    - [ ] Issues with Deferred
+    - [ ] Possible solutions to issues
+    - [ ] Algorithmic complexity
+    - [ ] O notation
+*** TODO Tiled Shading Forward + [1/12] [8%]
+    - [X] Fix pseudocode
+    - [ ] All efficient algorithms
+    - [ ] Efficient light culling
+    - [ ] Size of tiles
+    - [ ] Analogy to collision detection
+    - [ ] Need to know about compute shaders and GPU's
+    - [ ] Why compute bound algorithms are more important in the future
+    - [ ] Present issues
+    - [ ] Depth Discontinuities
+    - [ ] Discuss animations
+    - [ ] Tiled is valid for both forward and deferred
+    - [ ] Removes the bandwidth bottleneck and isntead makes it compute bound
+*** TODO Clustered shading [1/9] [11%]
+    - [X] Fix pseudocode
+    - [ ] World we try to represent is 3D but tiling is 2D
+    - [ ] We already know the shape and size of the view frustum before rendering
+    - [ ] How similar this is to tiled
+    - [ ] Z-prepass is not necessary but will want to do it
+    - [ ] There are still issues and things that could be improved but we will discuss below
+    - [ ] Volumetric data structures are here to stay
+    - [ ] Supports transparency
+    - [ ] Supports MSAA again
+*** TODO Outro [0/4] [0%]
+    - [ ] Fix comparison table
+    - [ ] Discuss some of these pros and cons in more detail
+    - [ ] Explain sources or add more sources
+    - [ ] Explain what you will do next
+** TODO Part 2 [0/7] [0%]
+*** TODO Intro [0/4] [0%]
+    - [ ] Add paper
+    - [ ] Short intro blurb
+    - [ ] Explain the major steps of implementing the algorithm
+    - [ ] Explain what steps you will not cover
+*** TODO Building cluster grid [0/12] [0%]
+    - [ ] Explain clustering
+    - [ ] Explain the different kinds of clustering
+    - [ ] Explain which one we picked
+    - [ ] Show the formula
+    - [ ] Plot
+    - [ ] Describe picture
+    - [ ] Explain how you picked the tile size
+    - [ ] Explain code
+    - [ ] Fix up code a bit
+    - [ ] Specific functions we are highlighting
+    - [ ] Why do we use AABB's
+    - [ ] Problems with this approach when resizing screen
+*** TODO Determining Active Clusters [0/5] [0%]
+    - [ ] This is optional
+    - [ ] I have not implemented it yet but this is how I would
+    - [ ] Review code
+    - [ ] Why it helps
+    - [ ] Helps for launching compute shader indirectly
+*** TODO Light culling Methods [0/9] [0%]
+    - [ ] Repeat visualization because it is cool
+    - [ ] Light culling compute shader is much larger
+    - [ ] Explain the major data structures
+    - [ ] Remind readers of what we already have achieved so far
+    - [ ] How we check light intersection
+    - [ ] Add picture of data structure?
+    - [ ] Why do we need data structures that are so convoluted
+    - [ ] Carefully explain code section
+    - [ ] What do we do after the light list has been completed
+*** TODO Optimization techniques [0/8] [0%]
+    - [ ] Mention that there is still things that could be improved
+    - [ ] How close are we to the theoretical limits?
+    - [ ] Explain BVH spatial subdivision
+    - [ ] Explain the other techniques like virtual shadow maps
+    - [ ] Field of global illumination and many lights
+    - [ ] Strength to turn splatting into gatheringtechniques
+    - [ ] GPU level optimizations like wave whatever explained in doom pres
+    - [ ] Not researched this part in depth
+*** TODO Successful Implementations [0/3] [0%]
+    - [ ] Mention some further reading you can do
+    - [ ] Link to successful implementations of games
+    - [ ] Re-link to my own clustered renderer
+*** TODO Outro  [0/1] [0%]
+    - [ ] Thanks for reading post and links to my email and twitter
+** TODO Image fixing [0/2] [0%]
+    - [ ] Change picture of overdraw N1
+    - [ ] Change picture of tiled shading 
 
     

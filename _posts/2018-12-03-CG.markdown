@@ -25,7 +25,7 @@ description: An introduction to basic efficient rendering concepts and an overvi
 <p></p>
 For the past three months I’ve been working on a Clustered Renderer in OpenGL with the aim of building a framework to experiment with deferred and forward shading techniques. Feel free to [check it out on GitHub.](https://github.com/Angelo1211/HybridRenderingEngine) I think it's pretty neat, but I also might be a bit biased. Anyway, originally my plan for this post was to write a brief account detailing how I implemented clustered rendering in my engine. However, as the writing went on I increasingly found myself wanting to refer to other efficient algorithms as a way to contextualize the benefits of Clustered Shading. Those references quickly grew to become a significant portion of the text, so I decided to split it into two parts.
 
-Part one is a high-level overview of efficient rendering techniques. It follows a simple three-act structure that will take us from classical forward shading all the way to a modern implementation of Clustered Shading. First, I'll discuss how a given algorithm renders an image. Next, I'll showcase its major shortcomings and limitations. And lastly, I'll introduce strategies to overcome those shortcomings, which will segue nicely to the next algorithm. Part two is a deep dive into my own flavor of Clustered Shading, covering all major steps of the algorithm and laying out the specifics of the code I wrote. It'll also contain some further reading on the topic written by developers who have succesfully implemented this technique in high profile games. Let's get to it!
+Part one is a high-level overview of efficient rendering techniques. It follows a simple three-act structure that will take us from classical forward shading all the way to a modern implementation of Clustered Shading. First, I'll discuss how a given algorithm renders an image. Next, I'll showcase its major shortcomings and limitations. And lastly, I'll introduce strategies to overcome those shortcomings, which will segue nicely to the next algorithm. Part two is a deep dive into my own flavor of Clustered Shading, covering all major steps of the algorithm and laying out the specifics of the code I wrote. It'll also contain some links to further reading on the topic written by developers who have succesfully implemented this technique in high profile games. Let's get to it!
 
 ### **TL;DR**
 ---
@@ -52,11 +52,11 @@ Part one is a high-level overview of efficient rendering techniques. It follows 
  
 Without these optimizations, it would be impossible to achieve the levels of visual fidelity we are accustomed to in modern high-profile games. So, in a sense, **efficient rendering algorithms** are at the core of all modern Real-Time rendering processes and are needed to display nearly anything interesting these days. However, of the countless possible optimizations that one could implement, there are a few notable techniques that can have a dramatic impact on performance and have been fully embraced by the graphics community.
 
-To be even more specific, we'll be focusing on two kinds of techniques: ones that reduce the amount of unnecessary pixel shader calls and others that focus on lowering the number of lighting computations during shading. You should assume that for most of the algorithms we'll be discussing we've already taken care of all other bottlenecks and have performed proper culling and mesh management somewhere further upstream. Other unimportant details that come into play when rendering a mesh will also be stripped away in favor of presenting a clear picture of how and why these efficient algorithm outperform their peers.
+We'll be focusing on two kinds of techniques: ones that reduce the amount of unnecessary pixel shader calls and others that focus on lowering the number of lighting computations during shading. You should assume that for most of the algorithms we'll be discussing we've already taken care of all other bottlenecks and have performed proper culling and mesh management somewhere further upstream. Other important details that come into play when rendering a mesh will also be stripped away in favor of presenting a clear picture of how and why these efficient algorithm outperform their peers.
 
 However, there ain't no such thing as a free lunch. None of these algorithms have zero overhead or are guaranteed to improve the performance of your rendering pipeline. In fact, all of them carry some implicit overhead that might not be repaid for until you are working with some very complex scenes. So make sure to consult your ~~[primary care phycisian](https://renderdoc.org/)~~ profiler tools to assess the location of your current bottleneck. 
 
-Let's begin by examining the most basic rendering algorithm: classic forward shading.
+Let's begin by examining the most basic rendering algorithm: 
 
 ### **Forward Shading**
 <script>
@@ -79,62 +79,98 @@ Let's begin by examining the most basic rendering algorithm: classic forward sha
 <iframe id="forward1" class ="slideshow-iframe" src="{{ site.baseurl }}/slides/forward.html" style = "width: 100%;" frameborder="0" scrolling="no"  ></iframe>
 
 {% highlight c# %}
+//Shaders:
+Shader shade
+
+//Buffers:
+Buffer display
+
 for mesh in scene
     for light in scene
-        mesh.shade(light)
+        display += shade(mesh, light)
 {% endhighlight %} 
 
-Let's begin the  overview of efficient algorithms by talking about one that isn't. The animation and the pseudocode above illustrate at a pretty basic level the behaviour of a naïve **multi-pass** classical forward renderer. Let's break down this definition: I use the word "classical" here because this very roughly translates to the typical algorithm you would find in engines of the late 90's and early 2000's. Why it is called "Forward" I am not entirely sure, &mdash; please let me know if there is actually a non-obvious reason for the name &mdash; but if I were to guess it's beacause the mesh data marches *forward* along the GPU pipeline in a somewhat linear fashion. From the vertex shader to the rasterizer to the vertex shader to the buffer where our frame is being stored before being sent to the monitor. Multi-pass refers to the fact that we don't shade the object in one go, we iteratively shade it light by light using multiple simple fragment shaders for each light. As you can imagine, this simple approach still leaves a lot of room for improvement, but I wager that it would probably fair fine for scenes with few meshes, simple materials and just a couple of lights. 
+In it's vanilla form, **forward shading** is a method of rendering scenes by linearly marching *forward* along the GPU pipeline. A single shader program will be completely in charge of drawing a mesh, starting from the vertex shader, passing through to the rasterizer and finally getting to the fragment shader. The animation and pseudocode above illustrate this behaviour at a glance. Per each mesh and light combination we issue one draw call; We keep making passes, repeating this process light by light and mesh by mesh, and additively blending the results until the image has been fully assembled. This process is more accurately known as **multi-pass** forward renderering.
 
-The main issues with this algorithm become apparent when you increase the quantity or complexity of any of these variables. These are the core variables that each rendering algorithm are struggling with and trying to solve in different ways. On the one hand, trying to render complex scenes with classical forward shading will be problematic because of **overdraw**, which is essentially casued by meshes overwriting the values of previously drawn items because they appear closer to the viewer. Another issue can occur when you have a significant amount of lights in a scene since in a multi-pass system this will incur as many vertex and fragment shader calls as there are lights per object, which can very quickly overwhelm any GPU. Essentially, what we have here is a $$ O(\text{mesh}* \text{lights}) $$ algorithm.
+This simple approach leaves a lot of room for improvement, but I wager that it would probably fair fine for simple scenes with a few meshes, basic materials and just a couple of lights. The main issues with this algorithm will become apparent when you increase the quantity or complexity of any of these variables.
+
+For example, a scene with many dynamic lights of different kinds will overwhelm any multi-pass forward renderer due to the combinatorial growth in the number of shader programs. Even though each individual shader is simple, the overhead from shader program switching and bandwidth costs of repeatedly loading meshes quickly becomes a bottleneck. In addition, as you increase the number of meshes you will run into an issue called **overdraw**.
 
 <iframe id="overdraw1" class ="slideshow-iframe" src="{{ site.baseurl }}/slides/overdraw.html" style = "width:100%" frameborder="0" scrolling="no"  ></iframe>
 
-You can see overdraw in action in the animation above. You spend all this time working on rendering a mesh and then, another mesh inconveniently comes along and places itself in front of your finished mesh and now you will have wasted a ton of fragment shader calls. The worst case scenario would occur if for some reason you are using the painter's algorithm to solve visibility and you've listed your meshes in a back to front order.
+You can see it in action in the animation above. We begin with the completed scene from the previous animation and then draw new meshes that overlap the previous ones. This invalidates all of the work done shading the covered parts of the background objects. In multi-pass forward rendering this is especially costly, since each completed pixel went through the full vertex-fragment shader pipeline multiple times before being discarded. Alternatively, we could sort the meshes front to back before rendering so that the fragment depth check takes care of the problem. However, sorting meshes based on their screen location is not a trivial problem to solve for large scenes and is costly to do every frame. 
 
-Overdraw is a specially egregious problem in Forward rendering since you have to go through the full vertex-fragment shader pipeline each draw call and you might end up issuing thousands of pixels worth of fragment shader calls that end up being thrown away when an object closer to the viewer gets drawn right on top of them. So how do we fix this issue? Well, the most obvious solution would be to sort the meshes front to back before rendering so that the z-buffer takes care of the problem. However, depending on your setup this might very likely be not worth the cost, since in the process of sorting you will have to go through the vertex transformation pipeline to get the Zdepth of each mesh anyway.
-
-So as I was saying, all efficient shading algorithms are trying to solve the problems of overdraw and dealing with large numbers of light with the objective of transforming the problem from a O(lights * meshes) to a O(meshes + lights). We'll begin by evaluating the main strategies that you can use to reduce overdraw issues.
-
+What we need instead is a solution that decouples the process of determining if a mesh contributes to the final image from the act of shading a given mesh.
 
 ### **Deferred Shading**
 <p></p>
 
-So, the key insight to have here is that **there is no reason why you can't perform the visibility and shading steps separately**. The ideal case scenario is obviously one where you already know exactly what objects contribute to the final image and you only invoke the pixel shaders to shade whatever is visible of them. Sadly, there is no simple function that can determine ahead of time what objects will be displayed. &mdash;[Unless, of course, you are a modern age wizard](https://www.shadertoy.com/view/ldd3DX) &mdash; What we can do instead is run through every object in the scene as we did earlier, except this time, not shading them. Instead we'll keep track of the last object that affected a pixel in some way, normally by either recording their depth or their position at that given pixel in a texture. We can summarize this in pseudocode like so:
+**Deferred shading** is that solution. The idea is that we perform all visibility and material fetching in one shader program, store the result in a buffer, and then perform lighting and shading in a different shader that takes as an input that buffer. As Angelo Pesce illustrates in [The real-time rendering continuum: a taxonomy](http://c0de517e.blogspot.com/2016/08/the-real-time-rendering-continuum.html) there is a lot of freedom as to where we can choose to perform this split. However, the size and content of the intermediate buffer will be determined by the splitting point.
+
+If we're only concerned with overdraw, the buffer simply has to keep track of the last visible mesh per pixel, normally by recording either its depth or position. Before shading we now can check if a mesh matches with the value recorded in the buffer, if not we discard. To summarize using pseudocode :
  
-
-
 <div>
 <iframe id="zpre1" class ="slideshow-iframe" src="{{ site.baseurl }}/slides/zprepass.html" style = "width:100%" frameborder="0" scrolling="no"  ></iframe>
 </div>
 
 {% highlight c# %}
-texture depthTexture
-for object in scene
-    if object.isVisible() and (object.depth < depthTexture.depth)
-       depthTexture.writeDepth(object)
 
-for object in scene
-    if object.depth == depthTexture.depth
+//Buffers:
+Buffer display
+Buffer depthBuffer
+
+//Shaders:
+Shader shade
+Shader writeDepth
+
+//Visibility
+for mesh in scene
+    if mesh.depth < depthBuffer.depth
+       depthBuffer = writeDepth(mesh)
+
+//Shading and lighting
+for mesh in scene
+    if mesh.depth == depthBuffer.depth
         for light in scene
-            object.shade(light)
+            display += shade(mesh, light)
 {% endhighlight %}
 
-This is usually known as a **Z-prepass**,  and it essentially *decouples* the process of determining the visibility of an object from the act of shading it. Notice that you haven't actually eliminated overdraw, you've just smartly allowed for it to happen at a point where it doesn't affect performance as much. Because in the process of filling in your depth texture you'll still end up writing over it multiple times. However, this is *generally* not as much of an issue since the cost of accessing rewriting the texture memory is much cheaper than performing a full lighting pass. Pretty neat right?
+This is usually known as a **Z Pre-pass**, 
+
+and it essentially *decouples* the process of determining the visibility of an object from the act of shading it. 
+
+Notice that you haven't actually eliminated overdraw, you've just smartly allowed for it to happen at a point where it doesn't affect performance as much. 
+
+Because in the process of filling in your depth texture you'll still end up writing over it multiple times. However, this is *generally* not as much of an issue since the cost of accessing rewriting the texture memory is much cheaper than performing a full lighting pass. Pretty neat right?
+
+The ideal case scenario is obviously one where you already know exactly what objects contribute to the final image and you only invoke the pixel shaders to shade whatever is visible of them.
+
+Sadly, there is no simple function that can determine ahead of time what objects will be displayed. &mdash;[Unless, of course, you are a modern age wizard](https://www.shadertoy.com/view/ldd3DX) &mdash; What we can do instead is run through every object in the scene as we did earlier, except this time, not shading them. 
 
 **Deferred rendering**, extends the main concept of the **Z-prepass** even further by not only writing the depth or position of a given object to textures, but also recording all of the attributes of an object that are used in shading. That includes various things such as the surface normal, the objects' albedo/color or it's specular/shininess. There really is no limit to what you can write in textures beyond the texture memory of the GPU itself. The collection of these textures is commonly referred to as the **G-Buffer** and we'll use it for the lighting pass directly instead of referring to the source objects. Once again I have to plug [Adrian Courreges's Blog](http://www.adriancourreges.com/blog/2017/12/15/mgs-v-graphics-study/) where he goes into more detail about Deferred Rendering in his post about MGS V. Let's update our pseudocode algorithm to resemble a simple deferred implementation:
 
 
 <iframe id="def1" class ="slideshow-iframe" src="{{ site.baseurl }}/slides/deferred.html" style = "width:100%" frameborder="0" scrolling="no" ></iframe>
 
-{% highlight c# %}
-Gbuffer buffer
-for object in scene
-    if object.isVisible() and (object.depth < buffer.depth)
-       buffer.writeShadingAttributes(object)
+$$ O(\text{mesh}* \text{lights}) $$ algorithm.
 
+{% highlight c# %}
+//Buffers:
+Buffer display
+Buffer GBuffer 
+
+//Shaders:
+Shader shade
+Shader writeShadingAttributes
+
+//Visibility & materials
+for mesh in scene
+    if mesh.depth < GBuffer.depth
+       GBuffer = writeShadingAttributes(mesh)
+
+//Shading & lighting
 for light in scene
-    buffer.shade(light)
+    display += shade(GBuffer, light)
 {% endhighlight %}
 
 Yet deferred rendering is essentially making a trade-off between bandwidth and computation and something to keep in mind is that memory access is not cheap. In fact, if you were to go ahead and implement Deferred rendering as I've explained it so far, the performance gains would be pretty unremarkable, or in the case of large G-Buffers and many lights, performance would probably be worse. Even though you might have vanquished overdraw you have added a new cost to the shading & light accumulation step: reading the G-Buffer. Reading or writing memory in your tightest and most inner loop is always bad news, and even though GPU's have ways to hide the costs of memory reads, given enough lights, those latency hiding techniques will quickly become useless. If you're interested in understanding why [Prof. Fatahalian's course on Paralallel Computer architectures](http://15418.courses.cs.cmu.edu/tsinghua2017/lecture/basicarch) covers the modern Multi-core processor architecture, both for CPU's and GPU's, and explains memory latency and memory bandwidth in the best way I've found yet. 
@@ -152,6 +188,16 @@ Now, we enter the realm of efficient light culling, instead of checking all ligh
 
 So finding this perfect tile size will be a matter of dtermining the optimal group size and occupancy for your gpu and also a matter of seeing if you are gpu or cpu bound already. In other words, just keep profilinig. Now to visualize the process I've included some pseudocode and an animation that kind of illustrates the general principles of the process:
 
+Another issue can occur when you have a significant amount of lights in a scene since in a multi-pass system this will incur as many vertex and fragment shader calls as there are lights per object, which can very quickly overwhelm any GPU.
+
+So as I was saying, all efficient shading algorithms are trying to solve the problems of overdraw and dealing with large numbers of light with the objective of transforming the problem from a O(lights * meshes) to a O(meshes + lights). We'll begin by evaluating the main strategies that you can use to reduce overdraw issues.
+
+
+To alleviate this, we could switch to a **single-pass** forward renderer.
+{% highlight c# %}
+for mesh in scene
+    mesh.shade(scene.lights)
+{% endhighlight %} 
 
 Lastly, it is important to remark that the current GPU performance trends indicate that the rate of growth of [compute capabilities continually outpace memory bandwidth growth](https://newq.net/dl/pub/SA2014ManyLightIntro.pdf). Hence compute bound algorithm are of more interest to us than algorithms with a memory  bandwidth bottleneck. This is something worth keeping in mind come tiled and clustered shading, since they are targeted as algorithms that can reduce the high memory bandwidth costs found in pure deferred renderers.
 
@@ -159,19 +205,29 @@ Lastly, it is important to remark that the current GPU performance trends indica
 
 
 {% highlight c# %}
-Gbuffer buffer
+//Buffers:
+Buffer display
+Buffer GBuffer 
+Buffer tileArray
+
+//Shaders:
+Shader shade
+Shader writeShadingAttributes
+CompShader lightInTile
+
+//Visibility & materials
 for mesh in scene
-    if mesh.isVisible() and (mesh.depth < buffer.depth)
-       buffer.writeShadingAttributes(mesh)
+    if mesh.depth < GBuffer.depth
+       GBuffer = writeShadingAttributes(mesh)
 
-for tile in screen
+//Light culling
+for tile in tileArray
    for light in scene
-      if tile.interesects(light)
-          tile.addLight(light)
-
-for tile in screen
-    for light in tile
-        buffer.shade(light)
+      if lightInTile(tile, light)
+          tile += light
+      
+//Shading
+display = shade(GBuffer, tileArray)
 {% endhighlight %} 
 
 
@@ -193,19 +249,30 @@ Clustered shading is the representation of that idea, the world we are trying to
 <iframe id="clus1" class ="slideshow-iframe" src="{{ site.baseurl }}/slides/clustered.html" style = "width:100%" frameborder="0" scrolling="no"></iframe>
 
 {% highlight c# %}
-Gbuffer buffer
+//Buffers:
+Buffer display
+Buffer GBuffer
+Buffer clusterArray
+
+//Shaders:
+Shader shade
+Shader writeShadingAttributes
+CompShader lightInCluster 
+
+//Visibility & materials
 for mesh in scene
-    if mesh.isVisible() and (mesh.depth < buffer.depth)
-       buffer.writeShadingAttributes(mesh)
+    if mesh.depth < GBuffer.depth
+       GBuffer = writeShadingAttributes(mesh)
 
-for cluster in screen
-   for cluster in scene
-      if cluster.interesects(light)
-          cluster.addLight(light)
+//Light culling
+for cluster in clusterArray
+   for light in scene
+      if lightIncluster(cluster, light)
+          cluster += light
 
-for cluster in screen
-    for light in cluster
-        buffer.shade(light)
+//Shading
+display = shade(GBuffer, clusterArray)
+
 {% endhighlight %} 
 
 Notice how similar the pseudocode is when you compare it to tiled. This is actually pretty representative of what happened when I wrote code that went from tiled to clustered since essentially the concepts behind it are really similar and the shaders you are using to draw don't really care how the lights are stored, just that they can easily access it from a given light. We will go into more detail as to how to create thsese clusters in the following section and exactly how to subdivide the lights, but something worth mentioning that clustered methods have above tiled methods is that you do not really need to do a z-prepass anymore, although most likely you will do it anyway. The main difference between tiled and clustered really is this whole subdivision of the z frustum to more optimally group lights. There is obviously much tath could still be improved in this process, for example, instead of checking every cluster for every light we could predetermine if a cluster is active via a z-prepass and then only evaluate all of the lights for the active clusters. Or to go even further instead of evaluating all of the lights we could use some spatial acceleration structure like a BVH to perform the light culling step considerably faster!
@@ -242,6 +309,7 @@ The table above summarizes the pros and cons of each method as we have discussed
 
 * [Rendering an Image of a 3D Scene by ScratchAPixel](https://www.scratchapixel.com/lessons/3d-basic-rendering/rendering-3d-scene-overview/computer-discrete-raster)
 * [A Short Introduction to Computer Graphics by Fredo Durand](http://people.csail.mit.edu/fredo/Depiction/1_Introduction/reviewGraphics.pdf)
+* [Beyond porting by Cass Everitt and John McDonald](http://media.steampowered.com/apps/steamdevdays/slides/beyondporting.pdf)
 * [Clustered Forward vs Deferred Shading by Matias](http://www.yosoygames.com.ar/wp/2016/11/clustered-forward-vs-deferred-shading/)
 * [Forward vs Deferred vs Forward+ by Jeremiah van Oosten](https://www.3dgep.com/forward-plus/)
 * [The real-time rendering continuum by Angelo Pesce](http://c0de517e.blogspot.com/2016/08/the-real-time-rendering-continuum.html)
