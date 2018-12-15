@@ -62,24 +62,26 @@
     - [X] Explain overdraw
     - [X] Why is overdraw a problem in forward
     - [X] Present solutions to overdraw
-*** TODO Deferred Shading [2/12] [16%]
+*** TODO Deferred Shading [6/12] [50%]
     - [X] Performing the visibility and shading steps separately
     - [X] Fix pseudocode
-    - [ ] Z-Prepass
-    - [ ] Haven't eliminated overdraw
-    - [ ] G-Buffer
-    - [ ] Why go deferred if reading and writing memory is so expensive
+    - [X] Z-Prepass
+    - [X] Haven't eliminated overdraw
+    - [X] What people refer to when they talk about deferred shading
+    - [X] G-Buffer
     - [ ] Reading and writing memory costs
+    - [ ] Removes the bandwidth bottleneck and isntead makes it compute bound
     - [ ] Small Detour about memory 
+    - [ ] Why go deferred if reading and writing memory is so expensive
     - [ ] Issues with Deferred
     - [ ] Possible solutions to issues
+*** TODO Tiled Shading Forward + [1/13] [7%]
+    - [X] Fix pseudocode
     - [ ] Algorithmic complexity
     - [ ] O notation
-*** TODO Tiled Shading Forward + [1/12] [8%]
-    - [X] Fix pseudocode
-    - [ ] All efficient algorithms
     - [ ] Efficient light culling
     - [ ] Size of tiles
+    - [ ] All efficient algorithms
     - [ ] Analogy to collision detection
     - [ ] Need to know about compute shaders and GPU's
     - [ ] Why compute bound algorithms are more important in the future
@@ -87,7 +89,6 @@
     - [ ] Depth Discontinuities
     - [ ] Discuss animations
     - [ ] Tiled is valid for both forward and deferred
-    - [ ] Removes the bandwidth bottleneck and isntead makes it compute bound
 *** TODO Clustered shading [1/9] [11%]
     - [X] Fix pseudocode
     - [ ] World we try to represent is 3D but tiling is 2D
@@ -158,3 +159,6 @@
     - [ ] Change picture of tiled shading 
 
     
+
+* Ideas
+Thermodynamics analogy to computing resources?! GPU - CPU etc
