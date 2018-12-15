@@ -46,19 +46,20 @@ Part one is a high-level overview of efficient rendering techniques. It follows 
 *...an **efficient** and...*
 *...a **list of lights** intersecting...*
 *...both **forward and deferred shading systems**...*
-*...the **view frustum** into a 3D grid ...** 
+*...the **view frustum** into a 3D grid ...
 
- The field of Real-Time rendering has two major, yet opposed, driving forces. On the one hand, there's the strive for realism and a wish for ever improving image quality while, on the other hand, there is a hard constraint to deliver those images quickly, usually in less than a 1/30th of a second. The only way to bridge this gap is through the use of software optimizations that allow you to squeeze as much performance as possible from the underlying hardware.
+ The field of Real-Time rendering has two major opposing driving forces. On the one hand, there's the strive for realism and a wish for ever improving image quality. On the other hand, there is a hard constraint to deliver those images quickly, usually in less than a 1/30th of a second. The only way to bridge this gap is through the use of software optimizations that allow you to squeeze as much performance as possible from the underlying hardware.
  
-Without these optimizations, it would be impossible to achieve the levels of visual fidelity we are accustomed to in modern high-profile games. So, in a sense, **efficient rendering algorithms** are at the core of all modern Real-Time rendering processes and are needed to display nearly anything interesting these days. However, of the countless possible optimizations that one could implement, there are a few notable techniques that can have a dramatic impact on performance and have been fully embraced by the graphics community.
+Without these optimizations, it would be impossible to achieve the levels of visual fidelity we are accustomed to in modern high-profile games. So, in a sense, **efficient rendering algorithms** are at the core of all modern Real-Time rendering processes and are needed to display nearly anything these days. However, of the countless possible optimizations that one could implement, there are a few notable techniques that can have a dramatic impact on performance and have been fully embraced by the graphics community.
 
-We'll be focusing on two kinds of techniques: ones that reduce the amount of unnecessary pixel shader calls and others that focus on lowering the number of lighting computations during shading. You should assume that for most of the algorithms we'll be discussing we've already taken care of all other bottlenecks and have performed proper culling and mesh management somewhere further upstream. Other important details that come into play when rendering a mesh will also be stripped away in favor of presenting a clear picture of how and why these efficient algorithm outperform their peers.
+We'll be focusing on two kinds of techniques: those that reduce the amount of unnecessary pixel shader calls and others that focus on lowering the number of lighting computations during shading. You should assume that for most of the algorithms we'll be discussing all other bottlenecks have already been taken care of. Also, proper culling and mesh management have been performed somewhere further upstream. Other important details that come into play when rendering a mesh will have also been stripped away in favor of presenting a clearer picture of how and why these efficient algorithms outperform their predecessors.
 
-However, there ain't no such thing as a free lunch. None of these algorithms have zero overhead or are guaranteed to improve the performance of your rendering pipeline. In fact, all of them carry some implicit overhead that might not be repaid for until you are working with some very complex scenes. So make sure to consult your ~~[primary care phycisian](https://renderdoc.org/)~~ profiler tools to assess the location of your current bottleneck. 
+However, there ain't no such thing as a free lunch. None of these algorithms have zero overhead or are guaranteed to improve the performance of your rendering pipeline. So make sure to consult your ~~[primary care phycisian](https://renderdoc.org/)~~ profiler tools to assess the location of your current bottleneck. 
 
 Let's begin by examining the most basic rendering algorithm: 
 
 ### **Forward Shading**
+<p></p>
 <script>
     $( document ).ready( function(){
         var cw = $('#forward1').width() * 0.80 ;
@@ -90,15 +91,16 @@ for mesh in scene
         display += shade(mesh, light)
 {% endhighlight %} 
 
-In it's vanilla form, **forward shading** is a method of rendering scenes by linearly marching *forward* along the GPU pipeline. A single shader program will be completely in charge of drawing a mesh, starting from the vertex shader, passing through to the rasterizer and finally getting to the fragment shader. The animation and pseudocode above illustrate this behaviour at a glance. Per each mesh and light combination we issue one draw call; We keep making passes, repeating this process light by light and mesh by mesh, and additively blending the results until the image has been fully assembled. This process is more accurately known as **multi-pass** forward renderering.
+In it's vanilla form, **forward shading** is a method of rendering scenes by linearly marching *forward* along the GPU pipeline. A single shader program will be completely in charge of drawing a mesh, starting from the vertex shader, passing through to the rasterizer and finally getting to the fragment shader. The animation and pseudocode above illustrate this behaviour at a glance. For each mesh and light combination we issue a single draw call additively blending the results until the image has been fully assembled. This process is better known as **multi-pass** forward rendering.
 
 This simple approach leaves a lot of room for improvement, but I wager that it would probably fair fine for simple scenes with a few meshes, basic materials and just a couple of lights. The main issues with this algorithm will become apparent when you increase the quantity or complexity of any of these variables.
 
-For example, a scene with many dynamic lights of different kinds will overwhelm any multi-pass forward renderer due to the combinatorial growth in the number of shader programs. Even though each individual shader is simple, the overhead from shader program switching and bandwidth costs of repeatedly loading meshes quickly becomes a bottleneck. In addition, as you increase the number of meshes you will run into an issue called **overdraw**.
+For example, a scene with many dynamic lights of different kinds will overwhelm any multi-pass forward renderer due to the combinatorial growth in the number of shader programs. Even though each individual shader is simple, the overhead from shader program switching and bandwidth costs of repeatedly loading meshes becomes a bottleneck quickly. In addition, as you increase the number of meshes you will run into an issue called **overdraw**. You can see it in action in the animation above.
 
 <iframe id="overdraw1" class ="slideshow-iframe" src="{{ site.baseurl }}/slides/overdraw.html" style = "width:100%" frameborder="0" scrolling="no"  ></iframe>
 
-You can see it in action in the animation above. We begin with the completed scene from the previous animation and then draw new meshes that overlap the previous ones. This invalidates all of the work done shading the covered parts of the background objects. In multi-pass forward rendering this is especially costly, since each completed pixel went through the full vertex-fragment shader pipeline multiple times before being discarded. Alternatively, we could sort the meshes front to back before rendering so that the fragment depth check takes care of the problem. However, sorting meshes based on their screen location is not a trivial problem to solve for large scenes and is costly to do every frame. 
+
+We begin with the completed scene from the previous animation and then draw new meshes that overlap the previous ones. This invalidates all of the work done shading the covered parts of the background objects. In multi-pass forward rendering this is especially costly, since each completed pixel went through the full vertex-fragment shader pipeline multiple times before being discarded. Alternatively, we could sort the meshes front to back before rendering so that the fragment depth check takes care of the problem. However, sorting meshes based on their screen location is not a trivial problem to solve for large scenes and is costly to do every frame. 
 
 What we need instead is a solution that decouples the process of determining if a mesh contributes to the final image from the act of shading a given mesh.
 

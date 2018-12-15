@@ -34,9 +34,6 @@
      CLOSED: [2018-12-13 jue 21:52]
 **** Unified lighting not discussed
 **** or, clusters, 
-*** REVIEW
-**** DONE fix last paragraph
-     CLOSED: [2018-12-14 vie 02:07]
 ** TODO Part 1 [2/6] [33%]
 *** DONE Intro
     CLOSED: [2018-12-14 vie 19:46]
@@ -162,3 +159,14 @@
 
 * Ideas
 Thermodynamics analogy to computing resources?! GPU - CPU etc
+
+* Mehnaaz Comments
+  - [X] Fix yet opposed
+  - [ ] Remove anyway
+  - [ ] Quickly grew into
+  - [ ] Further readings
+  - [ ] Put twitter logo
+  - [ ] View frustum to 3D
+  - [ ] Check for predecessor alternative
+  - [ ] Double negative alternative after free lunch
+  - [ ] 
