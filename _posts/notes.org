@@ -34,7 +34,7 @@
      CLOSED: [2018-12-13 jue 21:52]
 **** Unified lighting not discussed
 **** or, clusters, 
-** TODO Part 1 [2/6] [33%]
+** TODO Part 1 [3/6] [50%]
 *** DONE Intro
     CLOSED: [2018-12-14 vie 19:46]
 **** Is the warning really necessary?
@@ -59,21 +59,26 @@
     - [X] Explain overdraw
     - [X] Why is overdraw a problem in forward
     - [X] Present solutions to overdraw
-*** TODO Deferred Shading [6/12] [50%]
+*** DONE Deferred Shading [15/15] [100%]
+    CLOSED: [2018-12-16 dom 17:44]
     - [X] Performing the visibility and shading steps separately
     - [X] Fix pseudocode
     - [X] Z-Prepass
     - [X] Haven't eliminated overdraw
+    - [X] Initial ranges of depth buffer
     - [X] What people refer to when they talk about deferred shading
     - [X] G-Buffer
-    - [ ] Reading and writing memory costs
-    - [ ] Removes the bandwidth bottleneck and isntead makes it compute bound
-    - [ ] Small Detour about memory 
-    - [ ] Why go deferred if reading and writing memory is so expensive
-    - [ ] Issues with Deferred
-    - [ ] Possible solutions to issues
-*** TODO Tiled Shading Forward + [1/13] [7%]
+    - [X] Explain contents of gbuffer
+    - [X] Reading and writing memory costs
+    - [X] Small Detour about memory
+    - [X] Single pass setup
+    - [X] Why go deferred if reading and writing memory is so expensive
+    - [X] Issues with Deferred
+    - [X] Possible solutions to issue
+    - [X] Introduction to light culling
+*** TODO Tiled Shading Forward + [1/14] [7%]
     - [X] Fix pseudocode
+    - [ ] Removes the bandwidth bottleneck and isntead makes it compute bound
     - [ ] Algorithmic complexity
     - [ ] O notation
     - [ ] Efficient light culling
@@ -155,18 +160,20 @@
     - [ ] Change picture of overdraw N1
     - [ ] Change picture of tiled shading 
 
-    
-
 * Ideas
 Thermodynamics analogy to computing resources?! GPU - CPU etc
 
 * Mehnaaz Comments
-  - [X] Fix yet opposed
-  - [ ] Remove anyway
-  - [ ] Quickly grew into
-  - [ ] Further readings
-  - [ ] Put twitter logo
-  - [ ] View frustum to 3D
-  - [ ] Check for predecessor alternative
-  - [ ] Double negative alternative after free lunch
-  - [ ] 
+** Will do
+   - [X] Fix yet opposed
+   - [X] Remove anyway 
+   - [X] Quickly grew into
+   - [X] Further readings
+   - [ ] Graphics programming is my main interest
+** Maybe
+   - [ ] Check for predecessor alternative
+   - [ ] Double negative alternative after free lunch
+   - [ ] Put twitter logo
+   - [ ] View frustum to 3D
+   - [ ] Milestone achieved!
+
