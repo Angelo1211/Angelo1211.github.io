@@ -138,7 +138,7 @@ for mesh in scene
 
 This is commonly known as a **Z Pre-pass**, and it is considered a *mild* decoupling of shading and visibility for the sake of reducing the impact of overdraw. And I say *reducing* instead of *eliminating*, because overdraw still occurs when you are populating the depth buffer. However, at this point its impact on performance is minimal. This will only hold true if generating geometry and meshes are somewhat straightforward processes in your engine. If meshes come from procedural generation, heavy tessellation or some other source, loading them a second time might negate any possible benefits.
 
-Usually, mentions of **Deferred shading** refer to a specific system that uses a larger buffer. Within this buffer a series of textures are stored that include information about not only depth, but other shading attributes too. How a deferred system is implemented varies from renderer to renderer, albeit it usually includes material data such as: surface normal, albedo/color or a specular/shininess component. The collection of these textures is commonly referred to as the **G-Buffer**. If you want to see a specific implementation [this Graphics Study](http://www.adriancourreges.com/blog/2017/12/15/mgs-v-graphics-study/) by  Adrian Courreges goes into detail about how a frame is rendered in Metal Gear Solid V, a fantastic game with a a fully deferred rendering engine.
+Usually, mentions of **Deferred shading** refer to a specific system that uses a larger buffer. Within this buffer a series of textures are stored that include information about not only depth, but other shading attributes too. How a deferred system is implemented varies from renderer to renderer, albeit it usually includes material data such as: surface normal, albedo/color or a specular/shininess component. The collection of these textures is commonly referred to as the **G-Buffer**. If you want to see a specific implementation [this Graphics Study](http://www.adriancourreges.com/blog/2017/12/15/mgs-v-graphics-study/) by  Adrian Courreges goes into detail about how a frame is rendered in Metal Gear Solid V, a fantastic game with a fully deferred rendering engine.
 
 Let's update our pseudocode and check out how a basic deferred renderer is implemented:
 
@@ -163,9 +163,9 @@ for light in scene
     display += simpleShader(GBuffer, light)
 {% endhighlight %}
 
-Our G-Buffer contains the following shading attributes presented above in left to right, top to bottom  order: surface roughness, normals, albedo and world space position. Notice the differences in material properties between the ico-sphere, the regular sphere and the cube. Lighting is now evaluated for the whole G-Buffer at once instead of per mesh, but still done in a multi-pass fashion.
+Our G-Buffer contains the following shading attributes presented above in a left to right, top to bottom  order: surface roughness, normals, albedo and world space position. Notice the differences in material properties between the ico-sphere, the regular sphere and the cube. Lighting is now evaluated for the whole G-Buffer at once instead of per mesh, but still done in a multi-pass fashion.
 
-Deferred shading can also be understood as a tool that allows us to trade off memory bandwidth in exchange for a reduction in computation. In the case of multi-pass setups, the G-Buffer reduces the costs of shading because it can cache vertex transformation results and interpolated shaded attributes, which we later reuse each lighting pass by just reading the G-Buffer.
+Deferred shading can also be understood as a tool that allows us to trade off memory bandwidth in exchange for a reduction in computation. In the case of multi-pass setups, the G-Buffer reduces the costs of shading because it can cache vertex transformation results and interpolated shaded attributes, which we later reuse each lighting pass by reading the G-Buffer.
 
 Yet, reading and writing memory is not problem free either. Due to latency, all memory requests take time to be serviced. Even though GPU's can hide this latency by working on some other tasks while waiting, if the ratio of compute operations to memory reads in a program is very low it will eventually have no other option but to stall and wait until the memory delivers on the request. No amount of latency hiding can deal with a program that is requesting data at too high a rate. If you're interested in understanding why [Prof. Fatahalian's course on Paralallel Computer architectures](http://15418.courses.cs.cmu.edu/tsinghua2017/lecture/basicarch) covers the modern Multi-core processor architecture, both for CPU's and GPU's, and explains memory latency and throughput oriented systems in detail. 
 
@@ -197,13 +197,27 @@ In a single-pass setup we evaluate all of the lights in a scene using only a sin
 
 And therein lies the biggest perk of deferred shading, it reduces the number of responsibilities of a shader through **specialization**. By dividing the work between multiple shader programs we can avoid massively branching "uber-shaders" and reduce register pressure &mdash; in other words, reduce the amount of variables a shader program needs to keep track of at a given time. 
 
-But there are some other drawbacks to classical deferred methods that we haven't discussed yet. For starters, transparency is problematic because G-Buffers only store the information relevant to a single mesh per pixel. This can be overcome by performing a secondary forward pass for transparent meshes but requires extra work per frame. Another major flaw is that there is no easy way to make use of hardware based anti-aliasing(AA) techniques like Multi-Sampled Anti-Aliasing (MSAA). However, this is not as big of a deal as it used to be thanks to the progress made in the field of Temporal AA. Lastly, the shading attributes that are stored within the G-Buffer are decided by the shading model that will be used later on in the lighting pass. Varying shading models is costly since it requires either large G-Buffers that can accommodate the data for all models or the implementation of a more complex ID/masking setup. 
+But there are some other drawbacks to classical deferred methods that we haven't discussed yet. For starters, transparency is problematic because G-Buffers only store the information relevant to a single mesh per pixel. This can be overcome by performing a secondary forward pass for transparent meshes but requires extra work per frame. Another major flaw is that there is no easy way to make use of hardware based anti-aliasing(AA) techniques like Multi-Sampled Anti-Aliasing (MSAA). This is not as big of a deal as it used to be thanks to the progress made in the field of Temporal AA. Lastly, the shading attributes that are stored within the G-Buffer are decided by the shading model that will be used later on in the lighting pass. Varying shading models is costly since it requires either large G-Buffers that can accommodate the data for all models or the implementation of a more complex ID/masking setup. 
 
 However, bandwidth bottleneck concerns and large GPU memory usage continues to overshadow all the issues above and remains as the major drawbacks to classical deferred systems. An avenue of optimization that we have yet to cover is efficient light culling. So far, for both forward and deferred system in both their multi-pass and single-pass variants, we have evaluated lighting for every light at every pixel on the display. This includes pixels that were never in reach of any lights and therefore needlessly issued G-Buffer reads that consumed some of our precious bandwidth. For the next two sections we'll be looking at ways of efficiently identifying the lights affecting a given pixel.
 
 ### **Tiled Shading & Forward+**
 <p></p>
-Now, we enter the realm of efficient light culling, instead of checking all lights for all meshes we perform the checks for all screen space tiles. This is essentially a form of collision detection since we can give lights a volume based on their limited range, from the inverse square law. And then check those against the frustum of the camera. Now as you can imagine one of the variables at play here is the size of the tiles, so how do we determine that? well it is a matter of two opposing forces, ideally you want them to be as small as possible, that is pixel size, in which case you would be evaluating only the lights that are relevant, but if you do this, threads in the GPU would be each  possibly doing different things, so you would have huge divergence in the threads and no work would be saved. You could also perform this check in the cpu using SIMD but I think there are pretty large benefits to keeping all these operations on the cpu since you are reducing the amount of api calls and have to sync less often.
+
+
+Now, we enter the realm of efficient light culling, instead of checking all lights for all meshes we perform the checks for all screen space tiles. 
+
+This is essentially a form of collision detection since we can give lights a volume based on their limited range, from the inverse square law.
+
+And then check those against the frustum of the camera.
+
+Now as you can imagine one of the variables at play here is the size of the tiles, so how do we determine that?
+
+well it is a matter of two opposing forces, ideally you want them to be as small as possible, that is pixel size, in which case you would be evaluating only the lights that are relevant,
+
+but if you do this, threads in the GPU would be each  possibly doing different things, so you would have huge divergence in the threads and no work would be saved.
+
+You could also perform this check in the cpu using SIMD but I think there are pretty large benefits to keeping all these operations on the cpu since you are reducing the amount of api calls and have to sync less often.
 
 So finding this perfect tile size will be a matter of dtermining the optimal group size and occupancy for your gpu and also a matter of seeing if you are gpu or cpu bound already. In other words, just keep profilinig. Now to visualize the process I've included some pseudocode and an animation that kind of illustrates the general principles of the process:
 
@@ -358,6 +372,9 @@ The following section consists on a more in detailed review of Clustered shading
 
 Step 1 and 5 are out of the scope of this post since it is really dependent on whatever shading model you're using either deferred or forward or whateverr it is you do. Let's just say that our job here is to simply connect the pipes between the clusters and the fragment shader but not go beyond that. let's start by looking at step zero and work our way through the restf:
 
+There are actual applications for renderers that use that many lights. Specifically in the field of global illumination, where you can fake indirect lighting by using many small lights instead.
+
+Also something that is metnioned in the papers is that the strength of clustered shading is that it allows to turn splatting techniques into gathering techniques.
 ### **Building a Cluster Grid**
 <p></p>
 
@@ -590,19 +607,23 @@ void main(){
 {% endhighlight %}
 
 Once this shader is run the data structures mentioned above will be filled with the values necessary for a shader to obtain teh lights that are affecting a given cluster. It can be easily accessed from the fragment shader if we include a function that can directly obtain the given cluster from a screen value and a depth, like the one we found in the cluster determination section!
+
 ### **Optimization Techniques**
 <p></p>
 
-Once you have a working implementation there is still much that can be done to improve performance, van oosten [link](https://www.3dgep.com/volume-tiled-forward-shading/) shows specifically how spatial optimization structures like BVH can significantly increase the light culling step to the point where up to a million lights can be used in real time performance.
+There are always improvements that could be made to squeeze that last extra bit of performance out of any rendering algorithm. Although my renderer doesn't need these yet, I have done some preliminary research on the topic.
+
+If you're interested, your first stop should be [Jeremiah Van Oosten's thesis](https://www.3dgep.com/volume-tiled-forward-shading/) where he writes at length about optimizing Clustered Renderers and has links to his testing framework where you can compare different efficient rendering algorithms. In the video below he goes into detail as to how spatial optimization structures like Boundary Volume Hierarchies (BVH) and efficient light sorting can significantly increase performance and allow for scenes with millions of dynamic light sources in real-time.
 
 <iframe id="video1" style="width:100%" src="https://www.youtube.com/embed/nyItqF3sM84" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
 
 
-Olsson [link](http://www.cse.chalmers.se/~uffe/ClusteredWithShadowsSiggraphTalk2014.pdf) presents various methods that leverage the benefits of clustered shading, one of them focuses on making these many lights be shadow casting using virtual shadow mapping and another presents and alternate method of clustering using the normal at the surface instead of the world space position. 
+Ola Olsson, the original author of the paper, gave some talks about clustered rendering around 2014-15. You can find slides for two of them [here](https://newq.net/publications/more/s2015-many-lights-course) and [here](https://www.zora.uzh.ch/id/eprint/107598/1/a11-olsson.pdf). He and other speakers, present their findings about some various techniques that leverage the benefits of clustered shading. For example, one of them focuses on [virtual shadow mapping](http://www.cse.chalmers.se/~uffe/ClusteredWithShadows.pdf) enabling hundreds of real-time shadow casting dynamic lights, while another presents an alternate clustering method best suited for mobile hardware. 
 
-There are actual applications for renderers that use that many lights. Specifically in the field of global illumination, where you can fake indirect lighting by using many small lights instead. Another improvement we can make with clustered rendering is to do what DOOM 2016 did and include many different things in the clusters, not just lights but also decals and environment probes. This opens up the possibility of using this very coarse voxel grid to perform any kind of world space voxelization algorithms. 
+DOOM 2016 is another great source of information. It is considered a milestone implementation of clustered forward shading and many of the advances it made are recorded in [this Siggraph 2016 talk by Tiago Sousa and Jean Geffroy](http://advances.realtimerendering.com/s2016/Siggraph2016_idTech6.pdf). Some interesting takeaways from the talk can be found in the post-processing section. Specifically, in the explanation of how they optimized shaders to make use of GCN scalar units and saved some Vector General-Purpose Registers(VGPR). Also, by voxelizing environment probes, decals and lights the benefits of the cluster data structure were brought over to nearly all items that influence lighting.
 
-Also something that is metnioned in the papers is that the strength of clustered shading is that it allows to turn splatting techniques into gathering techniques. There is also a lot of talk these days about gpu level optimizations you can do at the wave level which I have not researched in depth yet but would like to soon at some time. I might go into this at some point in my project or not, I am not sure yet
+Over the coming months, as I continue to work on my renderer, I expect to have to implement some of these techniques to maintain my performance target of 60fps. Right now, it seems that implementing the BVH will be my first task &mdash; and specially after how important being familiar with BVH's will become after Turing. I'll make sure to write about how that goes and link to it here once the time comes!
+
 
 <p></p>
 ### **Successful Implementations**
@@ -610,7 +631,7 @@ Also something that is metnioned in the papers is that the strength of clustered
 
 So I would be remiss not to end this post by sharing some great presentations from other more experienced devs where they discuss their own versions of Clustered shading. As you can imagine, no two are alike, both in the nitty-gritty details of their implementations and in the large scale differences found in the genres of the games they make. It speaks volumes for the flexibility of this algorithm and hints towards a future where hybrid forward/deferred engines are the norm for AAA products that demand the highest visual fidelity. 
 
-Also, hey, I've technically implemented a Clustered Renderer too! If you've forgotten about it after reading this whole post I don't blame you, but [here's a link](https://github.com/Angelo1211/HybridRenderingEngine) for you so you don't have to scroll all the way to the top. It's a simplified implementation with much of the code commented so you &mdash; and I in about a year when I forget &mdash; can follow along easily. Okay okay, enough self promotion, here are the goods:
+Also, hey, I've technically implemented a Clustered Renderer too! If you've forgotten about it after reading this whole post I don't blame you, but [here's a link](https://github.com/Angelo1211/HybridRenderingEngine) so that you don't have to scroll all the way to the top. It's a simplified implementation with much of the code commented so you &mdash; and I in about a year when I forget &mdash; can follow along easily. Okay okay, enough self promotion, here are the goods:
 
 * [Clustered Shading in the Wild by Ola Olsson](http://efficientshading.com/blog/)
 * [(Doom 2016)The devil is in the Details by Tiago Sousa and Jean Geffrey](https://www.slideshare.net/TiagoAlexSousa/siggraph2016-the-devil-is-in-the-details-idtech-666?next_slideshow=1)
@@ -618,12 +639,13 @@ Also, hey, I've technically implemented a Clustered Renderer too! If you've forg
 * [Clustered Forward Rendering and Anti-aliasing in 'Detroit: Become Human' by Ronan Marchalot](https://twvideo01.ubm-us.net/o1/vault/gdc2018/presentations/Marchalot_Ronan_ClusteredRenderingAnd.pdf)
 
 #### Further reading:
+
+
 * [Chapter 20: Efficient Shading in Real Time Rendering 4th Edition](http://www.realtimerendering.com/)
 * [Volume Tiled Forward Shading by Jeremiah Van Oosten](https://www.3dgep.com/volume-tiled-forward-shading/)
 * [Practical Clustered Shading By Emil Persson](http://newq.net/dl/pub/SA2014Practical.pdf)
 * [Tiled and Clustered Forward Shading Supporting Transparency and MSAA Olsson et al.](https://www.researchgate.net/publication/254463291_Tiled_and_Clustered_Forward_Shading_Supporting_Transparency_and_MSAA)
-* [Adrian Courreges' Doom (2016) - Graphics Study](http://www.adriancourreges.com/blog/2016/09/09/doom-2016-graphics-study/)
-* [Efficient Virtual Shadow Maps for Many Lights by Ola Olsson et al.](http://www.cse.chalmers.se/~uffe/ClusteredWithShadows.pdf)
+* [Adrian Courreges' Doom (2016) - Graphics Study](http://www.adriancourreges.com/blog/2016/09/09/doom-2016-graphics-study/)[ Efficient Virtual Shadow Maps for Many Lights by Ola Olsson et al.](http://www.cse.chalmers.se/~uffe/ClusteredWithShadows.pdf)
 
 ---
 *Psst, hey you! If you've gotten this far I'd like to thank you for taking the time to read this post. I hope you enjoyed reading it as much as I did writing it. Just letting you know that I'm currently looking for a Graphics related position. If you're interested or know of any opportunities, I'd appreciate it if you'd let me know. Feel free to check out my "about" page for a choice selection of social media where you can reach me!*

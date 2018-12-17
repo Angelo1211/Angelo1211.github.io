@@ -76,21 +76,22 @@
     - [X] Issues with Deferred
     - [X] Possible solutions to issue
     - [X] Introduction to light culling
-*** TODO Tiled Shading Forward + [1/14] [7%]
+*** TODO Tiled Shading Forward + [1/15] [6%]
     - [X] Fix pseudocode
-    - [ ] Removes the bandwidth bottleneck and isntead makes it compute bound
+    - [ ] Efficient light culling
+    - [ ] Need to know about compute shaders and GPU's
+    - [ ] Analogy to collision detection
+    - [ ] Size of tiles
+    - [ ] Min max of tile depths
+    - [ ] Tiled is valid for both forward and deferred
     - [ ] Algorithmic complexity
     - [ ] O notation
-    - [ ] Efficient light culling
-    - [ ] Size of tiles
-    - [ ] All efficient algorithms
-    - [ ] Analogy to collision detection
-    - [ ] Need to know about compute shaders and GPU's
-    - [ ] Why compute bound algorithms are more important in the future
-    - [ ] Present issues
-    - [ ] Depth Discontinuities
     - [ ] Discuss animations
-    - [ ] Tiled is valid for both forward and deferred
+    - [ ] Removes the bandwidth bottleneck and isntead makes it compute bound
+    - [ ] Why compute bound algorithms are more important in the future
+    - [ ] Depth Discontinuities
+    - [ ] Present issues
+    - [ ] Present solutions
 *** TODO Clustered shading [1/9] [11%]
     - [X] Fix pseudocode
     - [ ] World we try to represent is 3D but tiling is 2D
@@ -101,15 +102,18 @@
     - [ ] Volumetric data structures are here to stay
     - [ ] Supports transparency
     - [ ] Supports MSAA again
-*** TODO Outro [0/4] [0%]
+*** TODO Outro [0/5] [0%]
     - [ ] Fix comparison table
     - [ ] Discuss some of these pros and cons in more detail
     - [ ] Explain sources or add more sources
+    - [ ] All efficient algorithms
     - [ ] Explain what you will do next
-** TODO Part 2 [0/7] [0%]
-*** TODO Intro [0/4] [0%]
+** TODO Part 2 [3/7] [42%]
+*** TODO Intro [0/6] [0%]
     - [ ] Add paper
     - [ ] Short intro blurb
+    - [ ] Strength to turn splatting into gathering techniques
+    - [ ] Field of global illumination and many lights
     - [ ] Explain the major steps of implementing the algorithm
     - [ ] Explain what steps you will not cover
 *** TODO Building cluster grid [0/12] [0%]
@@ -141,28 +145,29 @@
     - [ ] Why do we need data structures that are so convoluted
     - [ ] Carefully explain code section
     - [ ] What do we do after the light list has been completed
-*** TODO Optimization techniques [0/8] [0%]
-    - [ ] Mention that there is still things that could be improved
-    - [ ] How close are we to the theoretical limits?
-    - [ ] Explain BVH spatial subdivision
-    - [ ] Explain the other techniques like virtual shadow maps
-    - [ ] Field of global illumination and many lights
-    - [ ] Strength to turn splatting into gatheringtechniques
-    - [ ] GPU level optimizations like wave whatever explained in doom pres
-    - [ ] Not researched this part in depth
-*** TODO Successful Implementations [0/3] [0%]
-    - [ ] Mention some further reading you can do
-    - [ ] Link to successful implementations of games
-    - [ ] Re-link to my own clustered renderer
-*** TODO Outro  [0/1] [0%]
-    - [ ] Thanks for reading post and links to my email and twitter
+*** DONE Optimization techniques [6/6] [100%]
+    CLOSED: [2018-12-17 lun 09:27]
+    - [X] Mention that there is still things that could be improved
+    - [X] Explain BVH spatial subdivision
+    - [X] Explain the other techniques like virtual shadow maps
+    - [X] GPU level optimizations like wave whatever explained in doom pres
+    - [X] DOOM 2016 using clusters for more than just lights
+    - [X] Outro
+*** DONE Successful Implementations [3/3] [100%]
+    CLOSED: [2018-12-16 dom 19:49]
+    - [X] Mention some further reading you can do
+    - [X] Link to successful implementations of games
+    - [X] Re-link to my own clustered renderer
+*** DONE Outro  [1/1] [100%]
+    CLOSED: [2018-12-16 dom 19:49]
+    - [X] Thanks for reading post and links to my email and twitter
 ** TODO Image fixing [0/2] [0%]
     - [ ] Change picture of overdraw N1
     - [ ] Change picture of tiled shading 
-
 * Ideas
-Thermodynamics analogy to computing resources?! GPU - CPU etc
-
+- Thermodynamics analogy to computing resources?! GPU - CPU etc
+- How to determine how close we are to peak rendering capacity 
+- How close are we to the theoretical limits?
 * Mehnaaz Comments
 ** Will do
    - [X] Fix yet opposed
