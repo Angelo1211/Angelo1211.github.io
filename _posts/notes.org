@@ -1,5 +1,5 @@
 
-* TODO First Edit [1/4] [25%]
+* TODO First Edit [2/4] [50%]
 <2018-12-13 jue>
 ** DONE Intro 
 *** P1
@@ -34,7 +34,7 @@
      CLOSED: [2018-12-13 jue 21:52]
 **** Unified lighting not discussed
 **** or, clusters, 
-** TODO Part 1 [3/6] [50%]
+** TODO Part 1 [4/6] [66%]
 *** DONE Intro
     CLOSED: [2018-12-14 vie 19:46]
 **** Is the warning really necessary?
@@ -76,25 +76,29 @@
     - [X] Issues with Deferred
     - [X] Possible solutions to issue
     - [X] Introduction to light culling
-*** TODO Tiled Shading Forward + [1/15] [6%]
+*** DONE Tiled Shading Forward + [15/15] [100%]
+    CLOSED: [2018-12-18 mar 14:26]
     - [X] Fix pseudocode
-    - [ ] Efficient light culling
-    - [ ] Need to know about compute shaders and GPU's
-    - [ ] Analogy to collision detection
-    - [ ] Size of tiles
-    - [ ] Min max of tile depths
-    - [ ] Tiled is valid for both forward and deferred
+    - [X] Need to know about compute shaders and GPU's
+    - [X] Efficient light culling
+    - [X] Light area of effect
+    - [X] Analogy to collision detection
+    - [X] Discuss animation
+    - [X] Tiled is valid for both forward and deferred
+    - [X] Size of tiles
+    - [X] Present issues
+    - [X] View frustum
+    - [X] Depth Discontinuities 
+    - [X] Min max of tile depth
+    - [X] World we try to represent is 3D but tiling is 2D
+    - [X] Screen Space dependency 
+    - [X] Present solutions
+*** TODO Clustered shading [1/12] [8%]
+    - [X] Fix pseudocode
+    - [ ] Using CPUS possible
     - [ ] Algorithmic complexity
     - [ ] O notation
-    - [ ] Discuss animations
     - [ ] Removes the bandwidth bottleneck and isntead makes it compute bound
-    - [ ] Why compute bound algorithms are more important in the future
-    - [ ] Depth Discontinuities
-    - [ ] Present issues
-    - [ ] Present solutions
-*** TODO Clustered shading [1/9] [11%]
-    - [X] Fix pseudocode
-    - [ ] World we try to represent is 3D but tiling is 2D
     - [ ] We already know the shape and size of the view frustum before rendering
     - [ ] How similar this is to tiled
     - [ ] Z-prepass is not necessary but will want to do it
@@ -102,8 +106,9 @@
     - [ ] Volumetric data structures are here to stay
     - [ ] Supports transparency
     - [ ] Supports MSAA again
-*** TODO Outro [0/5] [0%]
+*** TODO Outro [0/6] [0%]
     - [ ] Fix comparison table
+    - [ ] Why compute bound algorithms are more important in the future
     - [ ] Discuss some of these pros and cons in more detail
     - [ ] Explain sources or add more sources
     - [ ] All efficient algorithms
@@ -161,9 +166,10 @@
 *** DONE Outro  [1/1] [100%]
     CLOSED: [2018-12-16 dom 19:49]
     - [X] Thanks for reading post and links to my email and twitter
-** TODO Image fixing [0/2] [0%]
-    - [ ] Change picture of overdraw N1
-    - [ ] Change picture of tiled shading 
+** DONE Image fixing [2/2] [100%]
+   CLOSED: [2018-12-17 lun 19:06]
+    - [X] Change picture of tiled shading 
+    - [X] Change picture of overdraw N1
 * Ideas
 - Thermodynamics analogy to computing resources?! GPU - CPU etc
 - How to determine how close we are to peak rendering capacity 

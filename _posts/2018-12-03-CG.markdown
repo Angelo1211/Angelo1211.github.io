@@ -46,7 +46,7 @@ Part one is a high-level overview of efficient rendering techniques. It follows 
 *...an **efficient** and...*
 *...a **list of lights** intersecting...*
 *...both **forward and deferred shading systems**...*
-*...the **view frustum** into a 3D grid ...
+*...the **view frustum** into a 3D grid ...*
 
  The field of Real-Time rendering has two major opposing driving forces. On the one hand, there's the strive for realism and a wish for ever improving image quality. On the other hand, there is a hard constraint to deliver those images quickly, usually in less than a 1/30th of a second. The only way to bridge this gap is through the use of software optimizations that allow you to squeeze as much performance as possible from the underlying hardware.
  
@@ -204,31 +204,9 @@ However, bandwidth bottleneck concerns and large GPU memory usage continues to o
 ### **Tiled Shading & Forward+**
 <p></p>
 
+With the introduction of [Shader Model 5](https://docs.microsoft.com/en-us/windows/desktop/direct3dhlsl/d3d11-graphics-reference-sm5) and DirectX 11 came the **compute shader**. It opened up the GPU for use as a general purpose computing tool that provides thread and memory sharing capabilities for programming parallel functions. Compute shaders can be a daunting topic if you're encountering them for the first time. However, I haven't been covering implementation details in Part 1 (but I will be in part 2!) so familiarity with compute shaders is not going to be super important moving forward. But, if you are itching to learn about them, I've got you covered! [Here's](https://github.com/Angelo1211/HybridRenderingEngine/wiki/References#22-compute-shaders) a list of learning sources to get you started.
 
-Now, we enter the realm of efficient light culling, instead of checking all lights for all meshes we perform the checks for all screen space tiles. 
-
-This is essentially a form of collision detection since we can give lights a volume based on their limited range, from the inverse square law.
-
-And then check those against the frustum of the camera.
-
-Now as you can imagine one of the variables at play here is the size of the tiles, so how do we determine that?
-
-well it is a matter of two opposing forces, ideally you want them to be as small as possible, that is pixel size, in which case you would be evaluating only the lights that are relevant,
-
-but if you do this, threads in the GPU would be each  possibly doing different things, so you would have huge divergence in the threads and no work would be saved.
-
-You could also perform this check in the cpu using SIMD but I think there are pretty large benefits to keeping all these operations on the cpu since you are reducing the amount of api calls and have to sync less often.
-
-So finding this perfect tile size will be a matter of dtermining the optimal group size and occupancy for your gpu and also a matter of seeing if you are gpu or cpu bound already. In other words, just keep profilinig. Now to visualize the process I've included some pseudocode and an animation that kind of illustrates the general principles of the process:
-
-Another issue can occur when you have a significant amount of lights in a scene since in a multi-pass system this will incur as many vertex and fragment shader calls as there are lights per object, which can very quickly overwhelm any GPU.
-
-So as I was saying, all efficient shading algorithms are trying to solve the problems of overdraw and dealing with large numbers of light with the objective of transforming the problem from a O(lights * meshes) to a O(meshes + lights). We'll begin by evaluating the main strategies that you can use to reduce overdraw issues.
-
-
-Lastly, it is important to remark that the current GPU performance trends indicate that the rate of growth of [compute capabilities continually outpace memory bandwidth growth](https://newq.net/dl/pub/SA2014ManyLightIntro.pdf). Hence compute bound algorithm are of more interest to us than algorithms with a memory  bandwidth bottleneck. This is something worth keeping in mind come tiled and clustered shading, since they are targeted as algorithms that can reduce the high memory bandwidth costs found in pure deferred renderers.
-
-$$ O(\text{mesh}* \text{lights}) $$ algorithm.
+Compute shaders are heavily used in **Tile-based shading** to efficiently cull lights for both forward and deferred systems. The idea is that we subdivide the screen into a set of tiles and build up a buffer that keeps track of which lights affect the geometry contained within a tile. Then, during the shading process we evaluate only the lights recorded in a given tile. This significantly reduces the number of lights that need to be evaluated. The animation and pseudocode below illustrate the process:
 
 <iframe id="tiled1" class ="slideshow-iframe" src="{{ site.baseurl }}/slides/tiled.html" style = "width:100%" frameborder="0" scrolling="no" ></iframe>
 
@@ -240,7 +218,7 @@ Buffer GBuffer
 Buffer tileArray
 
 //Shaders:
-Shader shade
+Shader manyLightShader
 Shader writeShadingAttributes
 CompShader lightInTile
 
@@ -256,22 +234,46 @@ for tile in tileArray
           tile += light
       
 //Shading
-display = shade(GBuffer, tileArray)
+display = manyLightShader(GBuffer, tileArray)
 {% endhighlight %} 
 
+Our starting point is the single-pass deferred algorithm from earlier. Previously, we'd shade each pixel by adding together the individual contributions of each light source, no matter how far away it was from the receiver. This is, technically speaking, the physically correct thing to do since light does have a near infinite area of influence. After all, [we do receive light from galaxies that are over 32 billion light-years away.](https://en.wikipedia.org/wiki/GN-z11) However, because of [light attenuation](https://imdoingitwrong.wordpress.com/2011/01/31/light-attenuation/) the amount of energy contributed to shading will decrease as a function of distance. Given a spherical light of radius $r$ and intensity $$L_i$$ , the illumination $$I$$ at distance $$d$$ is:
 
-Notice how this third loop we have included essentially decouples the process of finding if a light affects a pixel from the actual process of shading it. At this point we are very close to achieving the dream of making this a O(lights + meshes) but there is still some large view dependency happening. This happens because tiles aren't actually just 2D cuts of the screen but actually they cover the full frustum from the near plane to the far plane. This means that tiles with large depth discontinuities, that is tiles with a large difference between the max and min depth they contain. A typical example given of a scene that creates view issues is a street with lined street lamps. The example below shows the issues of depth discontinuities.
+$$ \begin{equation*} I = \frac{L_i}{(d/r + 1)^2} \end{equation*}$$
+
+This allows us to enforce an artificial limit to the area of influence of a light. With enough distance all light sources are attenuated so much that their contributions to shading become effectively imperceptible. We represent this by setting a threshold value of $$I$$ under which we deem there are no light contributions. This gives light sources a concrete volume of influence which is represented with different shapes for each type of light source. For point lights this volume takes the shape of a sphere, for spotlights a cone and for directional lights a full-screen quad.
+
+In the animation above we represent the volume of influence using colored wire-frame meshes. With these meshes we can perform something akin to collision detection between light volumes and tiles. If any portion of the light "mesh" is contained within a tile, we add that light to a per-tile light list. We perform this check for all tiles and every light in the scene. Until, finally, we shade the whole scene in one shader pass that uses the per-tile light lists as an input. 
+
+Notice that the light culling step does not depend on any other part of the rendering pipeline, hence we can implement tiled shading using either deferred or a single-pass forward renderer. Tile forward shading is sometimes also referred to as Forward+, with identical implementation details.
+
+Conceptually, this is all you need to know to grasp the core idea behind tiled shading. Yet you might be wondering about some of the implementation details we have glossed over. For example, how do we determine the optimal size for the tiles? The range of possible sizes goes from one tile per pixel to one tile per screen. You could think of our previous solution as a very inefficient single-tiled system. However, the other end of the spectrum would fare no better. Pixel sized tiles would require large buffers to store and would make the light culling step considerably slower. Not only that, but it wouldn't even help come shading time since GPU's execute multiple threads &mdash;which for now you can imagine as simply being synonymous to pixels &mdash; in groups that run the exact same code for all members. If each thread/pixel in a group has different lights they will want to execute different code. 
+
+When this occurs we say the code has low **coherency** and is highly **divergent.** Executing highly divergent code is *not* what the GPU was designed to do and *will* cause significant performance degradation. The realization that gets us out of this impasse is **that lights tend to affect many pixels at once and these pixels tend to be spatially close together**. By tiling our screen we're leveraging this property and grouping samples together so that they execute the same code. As we discussed above, the GPU is very happy when threads/pixels are coherent and execute the exact same code. As the saying goes *happy GPU, happy you.* :)
+
+Hence, achieving the optimal tile size requires finding a balance between making your tiles large, so that execution is coherent, and keeping them small, so that less useless computation is done. Even so, tile size usually ends up being set to the largest thread group of pixels your GPU can manage, even if that means performing many useless calculations per tile. The alternative solution involving smaller tiles would cost us more bandwidth and, as we have seen earlier, bandwidth is a precious resource we don't want to overspend on. For this reason, we accept a trade off between compute performance for the sake of saving some bandwidth.
+
+Yet, there's a fairly fundamental problem with tiled shading that comes from an assumption we've made above. Let's look at an example that showcases this issue:
 
 <iframe id="depthDisc1" class ="slideshow-iframe" src="{{ site.baseurl }}/slides/depthDisc.html" style = "width:100%" frameborder="0" scrolling="no" ></iframe>
 
-The problem here is that the tiles aren't really 2D tiles but actually are these elongated thin frustums that extend from the near plaen to far plane.
+In the animation above we're looking at the same scene from two perspectives, a familiar front view and an overhead shot that presents the full region of space captured by our virtual camera. In this region, also referred to as **view frustum**, tiles don't appear as 2D quads anymore, but as thin and elongated 3D slices of the frustum. As we'll see soon, this invalidates our previous assumption that tiles contain pixels that are always spatially close together. They might appear next to each other on the screen but, in reality, be separated by a **depth discontinuity**. In a nutshell, a depth discontinuity is a sudden change in distance, measured from the camera, usually found at the boundaries of one object and another.
 
-Specifically the problem can be seen with the yellow light is that in the center tiles there is a depth difference between the ico sphere and the large sphere in the back which causes issues because the yellow light is further back but all the pixels in the front will also be checking for it, which kills perf. Something worth noting is that forward does not necessarily have to be done using deferred, forward methods are also possible but require a z-prepass. Which really is kind of a very very light deferred method so really who knows. So how can we fix the issues of large discontinuities? Well, the simplest way is to stop using a representation that is nto really adequate for 3D scenes, that is to better deal with depth issues we have to move from a 2d to 3D.
+Whenever we have an in-front of or behind-of relationship between meshes or lights intersecting a tile, the "spatially close assumption" does not hold true anymore. In the animation above this can be seen with the large smooth sphere at the center. It's only illuminated by the yellow light located in the midground of the image. Yet, most of the tiles that are responsible for shading the sphere contain more than just the yellow light. In fact, some of them contain all of the lights in the scene! Even though this isn't quite as bad as our previous situation, we know we can still do better. 
 
-Also another important point is that tiled and clustered methods are not necessarily only used with deferred methods, they can also be applied to forward methods although normally you just use a z prepass. I already said this lol.
+A common optimization consists of finding the minimum and maximum depth of the visible meshes in each tile and redefining a tile's frustum to match this range. For the example above this would be an excellent optimization that would eliminate many unnecessary lights from the center tiles. However, to be able to perform this optimization a Z Pre-pass is necessary, since we have to fill the depth buffer before reading it. As we have already discussed, there are many reasons why this might not be feasible in your rendering pipeline.
+
+Also, this solution does very little to solve the main issue of depth discontinuities within tiles, since the minimum and maximum values will still be dictated by the individual depths of the meshes within. The basic problem is even more fundamental. Tile shading is essentially a 2D concept and the entities we're trying to represent are 3D. What this means in more practical terms is that light assignment in tiled shading is very strongly view dependent since it is based on screen space light density. Given different view points within the same scene we might have drastically different shading times and for real time applications unpredictable shading is very undesirable. So, in the next section on clustered shading we'll be discussing how we can solve this issue and improve upon the basic concepts of tiled shading.
 
 ### **Clustered Shading**
 <p></p>
+
+$$ O(\text{mesh}* \text{lights}) $$ algorithm.
+Notice how this third loop we have included essentially decouples the process of finding if a light affects a pixel from the actual process of shading it. At this point we are very close to achieving the dream of making this a O(lights + meshes) but there is still some large view dependency happening. This happens because tiles aren't actually just 2D cuts of the screen but actually they cover the full frustum from the near plane to the far plane. This means that tiles with large depth discontinuities, that is tiles with a large difference between the max and min depth they contain. A typical example given of a scene that creates view issues is a street with lined street lamps. The example below shows the issues of depth discontinuities.
+
+Lastly, it is important to remark that the current GPU performance trends indicate that the rate of growth of [compute capabilities continually outpace memory bandwidth growth](https://newq.net/dl/pub/SA2014ManyLightIntro.pdf). Hence compute bound algorithm are of more interest to us than algorithms with a memory  bandwidth bottleneck. This is something worth keeping in mind come tiled and clustered shading, since they are targeted as algorithms that can reduce the high memory bandwidth costs found in pure deferred renderers.
+
+You could also perform this check in the cpu using SIMD but I think there are pretty large benefits to keeping all these operations on the cpu since you are reducing the amount of api calls and have to sync less often.
 
 Clustered shading is the representation of that idea, the world we are trying to represent is 3D yet we are tiling in 2D and not taking into account the fact that we already know the shape and size of the view frustum before rendering. Because we already know this shape and size we can very easily subdivide it according to that and build a list of clusters that we can reference instead. It was first introduced by [Ola Olsson et al. in Clustered Deferred and Forward Shading](http://www.cse.chalmers.se/~uffe/clustered_shading_preprint.pdf) and I highly recommend you read this paper since it is pretty approacheable overall. We'll be going into a lot more detail in the second part of this post so I'll just cover the main ideas briefly here and we'll go into more specific details later.
 
@@ -347,6 +349,8 @@ The table above summarizes the pros and cons of each method as we have discussed
 * [Deferred Shading Optimizations By Nicolas Thibieroz](http://twvideo01.ubm-us.net/o1/vault/gdc2011/slides/Nicolas_Thibieroz_Programming_Deferred_Shading_Optimizations.pps)
 * [Forward+: Bringing deferred lighting to the next level by Takahiro Harada et al.](https://takahiroharada.files.wordpress.com/2015/04/forward_plus.pdf#page=2&zoom=100,0,78)
 * [Parallel Computer Architecture and Programming by Prof. Kayvon Fatahalian ](http://15418.courses.cs.cmu.edu/tsinghua2017/)
+* [Advancements in Tiled-Based Compute Rendering by Gareth Thomas](http://www.klayge.org/material/4_11/Advancements-In-Tiled-Rendering.pdf)
+* [Battlefield 3: DirectX 11 Rendering by Johan Andersson](http://www.dice.se/wp-content/uploads/2014/12/GDC11_DX11inBF3_Public.pdf)
 * [Clustered Deferred and Forward Shading by Ola Olsson et al.](http://www.cse.chalmers.se/~uffe/clustered_shading_preprint.pdf)
 
 ---
