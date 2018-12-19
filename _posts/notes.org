@@ -1,5 +1,5 @@
 
-* TODO First Edit [2/4] [50%]
+* TODO First Edit [3/4] [75%]
 <2018-12-13 jue>
 ** DONE Intro 
 *** P1
@@ -34,7 +34,8 @@
      CLOSED: [2018-12-13 jue 21:52]
 **** Unified lighting not discussed
 **** or, clusters, 
-** TODO Part 1 [4/6] [66%]
+** DONE Part 1 [6/6] [100%]
+   CLOSED: [2018-12-19 mié 17:22]
 *** DONE Intro
     CLOSED: [2018-12-14 vie 19:46]
 **** Is the warning really necessary?
@@ -93,30 +94,36 @@
     - [X] World we try to represent is 3D but tiling is 2D
     - [X] Screen Space dependency 
     - [X] Present solutions
-*** TODO Clustered shading [1/12] [8%]
+*** DONE Clustered shading [12/12] [100%]
+    CLOSED: [2018-12-18 mar 21:37]
     - [X] Fix pseudocode
-    - [ ] Using CPUS possible
-    - [ ] Algorithmic complexity
-    - [ ] O notation
-    - [ ] Removes the bandwidth bottleneck and isntead makes it compute bound
-    - [ ] We already know the shape and size of the view frustum before rendering
-    - [ ] How similar this is to tiled
-    - [ ] Z-prepass is not necessary but will want to do it
-    - [ ] There are still issues and things that could be improved but we will discuss below
-    - [ ] Volumetric data structures are here to stay
-    - [ ] Supports transparency
-    - [ ] Supports MSAA again
-*** TODO Outro [0/6] [0%]
-    - [ ] Fix comparison table
-    - [ ] Why compute bound algorithms are more important in the future
-    - [ ] Discuss some of these pros and cons in more detail
-    - [ ] Explain sources or add more sources
-    - [ ] All efficient algorithms
-    - [ ] Explain what you will do next
+    - [X] Introduce main idea
+    - [X] How similar this is to tiled
+    - [X] Explain image
+    - [X] Z-prepass is not necessary but will want to do it
+    - [X] We already know the shape and size of the view frustum before rendering
+    - [X] O notation
+    - [X] Algorithmic complexity
+    - [X] Using CPUS possible
+    - [X] Supports transparency
+    - [X] Supports MSAA again
+    - [X] There are still issues and things that could be improved but we will discuss below
+*** DONE Comparing algorithms [8/8] [100%]
+    CLOSED: [2018-12-19 mié 17:22]
+    - [X] transition question Mehnaaz
+    - [X] Imgur link
+    - [X] Fixed math equations and tables
+    - [X] Format comparison table
+    - [X] Discuss some of these pros and cons in more detail
+    - [X] Why compute bound algorithms are more important in the future
+    - [X] Explain sources or add more sources
+    - [X] Explain what you will do next
 ** TODO Part 2 [3/7] [42%]
-*** TODO Intro [0/6] [0%]
+*** TODO Intro [0/8] [0%]
     - [ ] Add paper
     - [ ] Short intro blurb
+    - [ ] Removes the bandwidth bottleneck and isntead makes it compute bound
+    - [ ] Volumetric data structures are here to stay
     - [ ] Strength to turn splatting into gathering techniques
     - [ ] Field of global illumination and many lights
     - [ ] Explain the major steps of implementing the algorithm

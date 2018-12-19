@@ -4,7 +4,10 @@ layout: default
 <script type="text/javascript"
 src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS_CHTML"></script>
 <script type="text/x-mathjax-config">
-    MathJax.Hub.Config({
+ MathJax.Hub.Config({
+     CommonHTML:{
+         scale:98
+               },
         tex2jax: {
             inlineMath: [['$','$'], ['\\(','\\)']],
             processEscapes: true},
@@ -20,19 +23,19 @@ src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-
     });
 </script>
 <style>
- table{
-    border-collapse: collapse;
-    border-spacing: 0;
-    border:1px solid #000000;
+    table{
+        border-collapse: collapse;
     }
 
     th{
-        border:1px solid #000000;
+        border-bottom:1px solid #000000;
+        padding: 4px;
     }
 
     td{
-    border:1px solid #000000;
-}
+        border-right:1px solid #000000;
+        border:0px solid #000000;
+    }
 </style>
 <div class="post">
 

@@ -169,7 +169,18 @@ margin-bottom: 0px;
 display: block;
 font-size: 42px;
 }
-
+.table-wrapper{
+    max-height: 400px;
+    overflow: auto;
+}
+.equation-wrapper{
+    max-height: 100px;
+    overflow-x: auto;
+}
+.MathJax{
+    font-size: 0.3em
+    !important;
+}
 /** Poem formatting ********************************************/
 .poem-title {
 font-size: 24px;
