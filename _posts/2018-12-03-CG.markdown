@@ -517,42 +517,76 @@ Why do we use AABB's instead of tight frustums? Well, AABBS built from the max a
 ### **Determining Active Clusters**
 <p></p>
 
-This part is rather optional, since we can just check all clusters for all lights for now. However, if you do go for this you will have to do a ZPre-pass, so this is only really worth it if you were doing this anyway for some reason. Now, I have not fully implemented this yet, it is planned for a future upgrade of my engine but a naive implementation of it in could be done like so:
+Once we have built our cluster grid 
+
+
+This part is rather optional, since we can just check all clusters for all lights for now. 
+
+However, if you do go for this you will have to do a ZPre-pass, so this is only really worth it if you were doing this anyway for some reason. 
+
+Now, I have not fully implemented this yet, it is planned for a future upgrade of my engine but a naive implementation of it in could be done like so:
 
 {% highlight c# %}
+//Input 
+vec2 pixelID; // The thread x and y id corresponding to the pixel it is representing
+vec2 screenDimensions; // The total pixel size of the screen in x and y
+
+//Output
+bool clusterActive[];
+
 //We will evaluate the whole screen in one compute shader 
 //so each thread is equivalent to a pixel
 void markActiveClusters(){
+    //Getting the depth value
     vec2 screenCord = pixelID.xy / screenDimensions.xy;
-    float z = texture(screenCord)
-    uint index = getClusterIndex(pixelID.xy, z);
-    clusterActive[index] = true;
+    float z = texture(screenCord) //reading the depth buffer
+    
+    //Getting the linear cluster index value
+    uint clusterID = getClusterIndex(vec3(pixelID.xy, z));
+    clusterActive[clusterID] = true;
 }
 {% endhighlight %}
 
 <p></p>
 
 {% highlight c# %}
+//Input
+vec3 pixelCoords;  // Screen space pixel coordinate with depth
+uint tileSizeInPx; // How many pixels a rectangular cluster takes in x and y
+uint3 numClusters; // The fixed number of clusters in x y and z axes
+
+//Output
+uint clusterIndex; // The linear index of the cluster the pixel belongs to 
+
 uint getClusterIndex(vec3 pixelCoord){
-    // Using equation (3) from the cluster determination section
-    clusterZVal       = getDepthSlice(pixelCoord.z);
-    uvec3 clusters    = uvec3( uvec2( pixelCoord.xy / screenDimensions.xy ), zTile);
+    // Uses equation (3) from Building a Cluster Grid section
+    uint clusterZVal  = getDepthSlice(pixelCoord.z);
+
+    uvec3 clusters    = uvec3( uvec2( pixelCoord.xy / tileSizeInPx), clusterZVal);
     uint clusterIndex = clusters.x +
-                        screenDimensions.x * clusters.y +
-                        (screenDimensions.x * screenDimensions.y) * clusters.z;
+                        numClusters.x * clusters.y +
+                        (numClusters.x * numClusters.y) * clusters.z;
     return clusterIndex;
 }
 {% endhighlight %}
+
 With this compute shader we would mark all the active clusters in a grid simply by writing to an array of bools as large as the cluster grid and then we would jsut set the flag as true if it is active at any point. To increase efficiency both Van Oosten and Olsson compact this list into a set of unique clusters to check from. This helps because it reduces the amount of clusters that need to have lights culled against them, instead of having to cull every light to every cluster, which would make the problem O(lights * clusters), remember that this was originally O(meshes * lights) so by using a coarser world grid of clusters we significantly improve performance if clusters < meshes.
 
 
 {% highlight c# %}
-//We will every cluster in one compute shader
+//Input
+bool clusterActive[]; //non-compacted list
+uint globalActiveClusterCount; //Number of active clusters
+
+//Output
+uint uniqueActiveClusters[]; //compacted list of active clusters
+
+//One compute shader for all clusters, one cluster per thread 
 void buildCompactClusterList(){
-    uint tileIndex  = gl_GlobalInvocationID;
-    if(clusterActive[index]){
+    uint clusterIndex  = gl_GlobalInvocationID;
+    if(clusterActive[clusterIndex]){
        uint offset = atomicAdd(globalActiveClusterCount, 1);
-       uniqueActiveClusters[offset] = tileIndex;
+       uniqueActiveClusters[offset] = clusterIndex;
     }
 }
 {% endhighlight %}
