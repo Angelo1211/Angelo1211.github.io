@@ -118,16 +118,16 @@
     - [X] Why compute bound algorithms are more important in the future
     - [X] Explain sources or add more sources
     - [X] Explain what you will do next
-** TODO Part 2 [3/7] [42%]
-*** TODO Intro [0/8] [0%]
-    - [ ] Add paper
-    - [ ] Short intro blurb
-    - [ ] Removes the bandwidth bottleneck and isntead makes it compute bound
-    - [ ] Volumetric data structures are here to stay
-    - [ ] Strength to turn splatting into gathering techniques
-    - [ ] Field of global illumination and many lights
-    - [ ] Explain the major steps of implementing the algorithm
-    - [ ] Explain what steps you will not cover
+** TODO Part 2 [4/7] [57%]
+*** DONE Intro [7/7] [100%]
+    CLOSED: [2018-12-19 mié 19:40]
+    - [X] Add paper
+    - [X] Short intro blurb
+    - [X] Removes the bandwidth bottleneck and instead makes it compute bound
+    - [X] Volumetric data structures are here to stay
+    - [X] Explain the major steps of implementing the algorithm
+    - [X] Explain what steps you will not cover
+    - [X] Warning on compute shaders
 *** TODO Building cluster grid [0/12] [0%]
     - [ ] Explain clustering
     - [ ] Explain the different kinds of clustering
@@ -177,6 +177,9 @@
    CLOSED: [2018-12-17 lun 19:06]
     - [X] Change picture of tiled shading 
     - [X] Change picture of overdraw N1
+* Scrapped points
+- [ ] Field of global illumination and many lights
+- [ ] Strength to turn splatting into gathering techniques
 * Ideas
 - Thermodynamics analogy to computing resources?! GPU - CPU etc
 - How to determine how close we are to peak rendering capacity 

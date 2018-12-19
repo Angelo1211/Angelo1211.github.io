@@ -15,7 +15,7 @@ description: An introduction to basic efficient rendering concepts and an overvi
     * [Clustered Shading](#clustered-shading)
     * [Comparing Algorithms](#comparing-algorithms)
 
-* [**Part 2: Clustered Hybrid Shading in Depth**](#part-2)
+* [**Part 2: How to Implement Clustered Shading**](#part-2)
     * [Building a Cluster Grid](#building-a-cluster-grid)
     * [Determining Active Clusters](#determining-active-clusters)
     * [Light Culling Methods](#light-culling-methods)
@@ -362,7 +362,7 @@ So, now that I've painted a picture of the landscape of efficient rendering algo
 <p></p>
 # ***Part 2:***
 <p></p>
-## Clustered Hybrid Shading
+## How to Implement Clustered Shading
 <p></p>
 ---
 *...and **versatile** rendering ...*
@@ -370,21 +370,25 @@ So, now that I've painted a picture of the landscape of efficient rendering algo
 *...a **3D grid of blocks or "clusters"** and ...*
 *...each **Active Volume**...*
 
-The following section consists on a more in detailed review of Clustered shading beginning with a backgorund on when it was created and it's use case. It was first introduced by Ola Olsson et al in the 2012 paper titled "Clustered deferred and forward shading" it has already been used in multiple major releases since and is now the algorithm of choice in many games and engines, as I'll show in a section below. The algorithm can be summarized in the following steps:
+**Clustered Shading** was first introduced by [Ola Olsson et al. in "Clustered Deferred and Forward Shading"](http://www.cse.chalmers.se/~uffe/clustered_shading_preprint.pdf) around 2012. Since then, it has been production proven through implementation in multiple successful projects such as the 2016 reboot of [Doom](https://en.wikipedia.org/wiki/Doom_(2016_video_game)) and [Detroit: Become Human.](https://www.playstation.com/en-us/games/detroit-become-human-ps4/) It has recently gained more attention due to Unity3D's announcement that it would be supported in their new [High Definition Render Pipeline.](https://github.com/Unity-Technologies/ScriptableRenderPipeline/wiki/High-Definition-Render-Pipeline-overview) 
 
-It was first introduced by [Ola Olsson et al. in Clustered Deferred and Forward Shading](http://www.cse.chalmers.se/~uffe/clustered_shading_preprint.pdf) and I highly recommend you read this paper since it is pretty approacheable overall.
-* 0: Initialize build clustered data structures in GPU
-* 1: Render scene to GBuffer or Z-prepass as normal
-* 2: Discover which clusters are currently in view by evaluating each screen pixel and checking which cluster it belongs too
-* 3: Reduce the list of clusters to just uniques
-* 4: Perform light culling and assign lights to clusters
-* 5: Shade samples using light list
+Its popularity is not surprising given that this algorithm offers the highest light-culling efficiency among current real-time many-light algorithms. Moreover, clustered shading improves upon other light culling algorithms by virtue of being compute bound instead of bandwidth limited, which we already discussed the benefit of in part 1 of this post. 
 
-Step 1 and 5 are out of the scope of this post since it is really dependent on whatever shading model you're using either deferred or forward or whateverr it is you do. Let's just say that our job here is to simply connect the pipes between the clusters and the fragment shader but not go beyond that. let's start by looking at step zero and work our way through the restf:
+At the heart of this algorithm is the cluster data structure which subdivides the view frustum into a set of volume tiles or **clusters**. This process can also be viewed as a rough voxelization of the view frustum so, given that volumetric data structures are becoming more popular by the day, this is a great opportunity to become more familiar with them. 
 
-There are actual applications for renderers that use that many lights. Specifically in the field of global illumination, where you can fake indirect lighting by using many small lights instead.
+The basic steps required to implement clustered shading are outlined in the original paper like so:
 
-Also something that is metnioned in the papers is that the strength of clustered shading is that it allows to turn splatting techniques into gathering techniques.
+ 1. Build the clustering data structure 
+ 2. Render scene to GBuffer or Z-prepass 
+ 3. Find visible clusters 
+ 4. Reduce repeated values in the list of clusters
+ 5. Perform light culling and assign lights to clusters
+ 6. Shade samples using light list
+
+My goal for this post is to go through them in order and explain in detail how to implement them in your engine. However, steps two and six won't be covered in this post since they are mostly dependent on whatever shading model you're using. Also, steps three and four are combined into one and covered in the section on Determining Active Clusters, much like in [Van Oosten's implementation](https://www.3dgep.com/volume-tiled-forward-shading/).
+
+A quick word of warning, most of the code we'll be looking at from now on will be written in GLSL and aimed for use in compute shaders. Although clustered shading *can* be fully implemented on the CPU, I personally chose to do it on the GPU. Moving forward, I will assume a basic level of familiarity with compute shaders and shader storage buffer objects. If this is your first time encountering them, I recommend you to take a look at [this link](https://github.com/Angelo1211/HybridRenderingEngine/wiki/References#20-gpu-programming-and-parallel-computer-architectures), it's a compilation of the sources I used to learn how to write compute shaders. Also, although most of this code uses OpenGL terminology the principles should directly translate to whatever API you're using. With all warnings out of the way, let's begin! 
+
 ### **Building a Cluster Grid**
 <p></p>
 
@@ -660,7 +664,8 @@ Also, hey, I've technically implemented a Clustered Renderer too! If you've forg
 * [Volume Tiled Forward Shading by Jeremiah Van Oosten](https://www.3dgep.com/volume-tiled-forward-shading/)
 * [Practical Clustered Shading By Emil Persson](http://newq.net/dl/pub/SA2014Practical.pdf)
 * [Tiled and Clustered Forward Shading Supporting Transparency and MSAA Olsson et al.](https://www.researchgate.net/publication/254463291_Tiled_and_Clustered_Forward_Shading_Supporting_Transparency_and_MSAA)
-* [Adrian Courreges' Doom (2016) - Graphics Study](http://www.adriancourreges.com/blog/2016/09/09/doom-2016-graphics-study/)[ Efficient Virtual Shadow Maps for Many Lights by Ola Olsson et al.](http://www.cse.chalmers.se/~uffe/ClusteredWithShadows.pdf)
+* [Adrian Courreges' Doom (2016) - Graphics Study](http://www.adriancourreges.com/blog/2016/09/09/doom-2016-graphics-study/)
+* [ Efficient Virtual Shadow Maps for Many Lights by Ola Olsson et al.](http://www.cse.chalmers.se/~uffe/ClusteredWithShadows.pdf)
 
 ---
 *Psst, hey you! If you've gotten this far I'd like to thank you for taking the time to read this post. I hope you enjoyed reading it as much as I did writing it. Just letting you know that I'm currently looking for a Graphics related position. If you're interested or know of any opportunities, I'd appreciate it if you'd let me know. Feel free to check out my "about" page for a choice selection of social media where you can reach me!*
