@@ -118,7 +118,7 @@
     - [X] Why compute bound algorithms are more important in the future
     - [X] Explain sources or add more sources
     - [X] Explain what you will do next
-** TODO Part 2 [4/7] [57%]
+** TODO Part 2 [5/7] [71%]
 *** DONE Intro [7/7] [100%]
     CLOSED: [2018-12-19 mié 19:40]
     - [X] Add paper
@@ -141,13 +141,15 @@
     - [ ] Specific functions we are highlighting
     - [ ] Why do we use AABB's
     - [ ] Problems with this approach when resizing screen
-*** TODO Determining Active Clusters [1/5] [20%]
+*** DONE Determining Active Clusters [6/6] [100%]
+    CLOSED: [2018-12-20 jue 12:52]
     - [X] Review code
-    - [ ] This is optional
-    - [ ] I have not implemented it yet but this is how I would
-    - [ ] Why it helps
-    - [ ] Helps for launching compute shader indirectly
-*** TODO Light culling Methods [0/9] [0%]
+    - [X] This is optional
+    - [X] Why it helps
+    - [X] Explain basics of algorithm
+    - [X] Explain some of the functions
+    - [X] Helps for launching compute shader indirectly
+*** TODO Light culling Methods [0/10] [0%]
     - [ ] Repeat visualization because it is cool
     - [ ] Light culling compute shader is much larger
     - [ ] Explain the major data structures
@@ -157,6 +159,7 @@
     - [ ] Why do we need data structures that are so convoluted
     - [ ] Carefully explain code section
     - [ ] What do we do after the light list has been completed
+    - [ ] Discuss BVH
 *** DONE Optimization techniques [6/6] [100%]
     CLOSED: [2018-12-17 lun 09:27]
     - [X] Mention that there is still things that could be improved
