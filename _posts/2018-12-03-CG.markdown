@@ -80,6 +80,8 @@ Let's begin by examining the most basic rendering algorithm:
  
 <iframe id="forward1" class ="slideshow-iframe" src="{{ site.baseurl }}/slides/forward.html" style = "width: 100%;" frameborder="0" scrolling="no"  ></iframe>
 
+*All animations were built using Blender 2.8, you can find the .blend files [here](https://github.com/Angelo1211/RenderingAlgosGIFS).*
+
 {% highlight c# %}
 //Shaders:
 Shader simpleShader
@@ -378,34 +380,44 @@ At the heart of this algorithm is the cluster data structure which subdivides th
 
 The basic steps required to implement clustered shading are outlined in the original paper like so:
 
- 1. Build the clustering data structure 
- 2. Render scene to GBuffer or Z-prepass 
- 3. Find visible clusters 
- 4. Reduce repeated values in the list of visible clusters
- 5. Perform light culling and assign lights to clusters
- 6. Shade samples using light list
+ 1. Build the clustering data structure.
+ 2. Render scene to GBuffer or Z-prep-ass.
+ 3. Find visible clusters.
+ 4. Reduce repeated values in the list of visible clusters.
+ 5. Perform light culling and assign lights to clusters.
+ 6. Shade samples using light list.
 
-My goal for this post is to go through them in order and explain in detail how to implement them in your engine. However, steps two and six won't be covered in this post since they are mostly dependent on whatever shading model you're using. Also, steps three and four are combined into one and covered in the section on Determining Active Clusters, much like in [Van Oosten's implementation](https://www.3dgep.com/volume-tiled-forward-shading/).
+My goal for this post is to go through the list in order and explain in detail how to implement them in your engine. However, steps two and six won't be covered in this post since they are mostly dependent on whatever shading model you're using. Also, steps three and four are combined into one and covered in the section on Determining Active Clusters, much like in [Van Oosten's implementation](https://www.3dgep.com/volume-tiled-forward-shading/).
 
 A quick word of warning, most of the code we'll be looking at from now on will be written in GLSL and aimed for use in compute shaders. Although clustered shading *can* be fully implemented on the CPU, I personally chose to do it on the GPU. Moving forward, I will assume a basic level of familiarity with compute shaders and shader storage buffer objects. If this is your first time encountering them, I recommend you to take a look at [this link](https://github.com/Angelo1211/HybridRenderingEngine/wiki/References#20-gpu-programming-and-parallel-computer-architectures), it's a compilation of the sources I used to learn how to write compute shaders. Also, although most of this code uses OpenGL terminology the principles should directly translate to whatever API you're using. With all warnings out of the way, let's begin! 
+
 
 ### **Building a Cluster Grid**
 <p></p>
 
-There are many possible ways of clustering data together but the easiest way and one of the most beneficial is to simply cluster together samples that are close together. The advantage in this is that objects that are close togther physically tend to be affected by the same lights, and therefore by picking samples that are close together we make sure that those samples sahre similar lights. So what we will do is subdivide our view space into clusters, first by performing a 2D subdivision in screen space and then subdividing even further in depth. How to exactly perform this depth subdivision is also up to the algorithm implementer but in the paper they briefly examine three possible ways to do it. 
+There are infinitely many possible ways of grouping view samples together. For rendering, we care mostly about whatever methods help us batch together samples to reduce computations. For example, in Tiled Shading, samples are batched together by screen-space proximity, which allows for more efficient grouped lighting evaluations. However, grouping view samples using screen-space positions doesn't account very well for depth discontinuities and leads to very annoying edge cases where a single pixel movement can cause performance issues. Obviously, this is pretty undesirable, so people smarter than me came up with alternative ways to group samples together using either view space position or surface normals.
+
+We'll be focusing on building cluster grids that group samples based on their view space position. We'll begin by tiling the view frustum exactly the same way you would in tiled shading and then subdividing it along the depth axis multiple times. There's no catch-all solution as to how you should perform this depth subdivision and in the original paper the authors discuss three possible ways of doing it.
 
 <iframe id="zslice1" class ="slideshow-iframe" src="{{ site.baseurl }}/slides/zslices.html" style = "width:100%" frameborder="0" scrolling="no" ></iframe>
 
-The animation above showcases these three possible subdivision schemes, subdivision in NDC, regular view frustum subdivision and exponential subdivision, in order of appearance. The first one presents issues because although the segments are uniform in NDC, NDC itself is rather non-uniform in view space. This results in very thin clusters close to the camera and very large clusters close to the far plane. The opposite occurs in uniform subdivision, where near clusters are long and narrow and those far awaya re very wide and flat. The next attempt consists in making them exponentially distributed in such a way that we counteract the non-linearity of transforming NDC space to view space. The paper then goes ahead and introduces their equation for non linear view space which you can find below:
+*All animations were built using Blender 2.8, you can find the .blend files [here](https://github.com/Angelo1211/RenderingAlgosGIFS).*
+
+The animation above showcases these three alternative **subdivision schemes**. The first one is regular subdivision in NDC space. As you can see, it's the most unevenly distributed of the bunch. The clusters close to the far plane are extremely large while the clusters adjacent to the near plane are minuscule. This is due to the non-linearity of NDC space which becomes evident when values get transformed to view space. [This article by Nathan Reed](https://developer.nvidia.com/content/depth-precision-visualized) helps you visualize this behavior with some very neat plots. This doesn't quite work as a subdivision scheme because we generally would like our clusters to be small so that they contain very few lights and also evenly distributed, which clearly isn't the case here. 
+
+The next logical step might seem trying to uniformly subdivide in view space, which is what the second image represents. This actually creates the opposite problem. The clusters close to the near plane are now huge while the ones close to the far plane are now wide and very thin which is also *No Bueno.* 
+
+Therefore, the authors of the original paper settled on a non-uniform scheme that is exponentially spaced to achieve self-similar subdivisions, as seen on the third and last image above. The idea is to counteract the NDC non-linearity with another exponential non-linearity. I included below the equation used in the paper. Here, $k$ represents the depth slice, $Z_{vs}$ the view space depth, $\text{near}$ is the near plane depth, $\theta$ represents half the field of view and $S_y$ is equal to the number of subdivision in $y$.
 
 $$\begin{equation} k = \left\lfloor\dfrac{ \log\left(-Z_{vs} / \text{near}\right)}{\log\left(1 +  \frac{2 tan \theta}{S_y}\right)}\right\rfloor \end{equation}$$ 
 
-In my implementation I ended up using a logarithmic distribution based on the one talked about in the DOOM siggraph presentation which you can see here:
-
+Yet, I didn't end up using any of the above subdivisions in my implementation at all. While researching the topic of clustered shading I found Tiago Sousa's DOOM 2016 Siggraph presentation and inside spotted the following equation: 
 
 $$\begin{equation} \text{Z} = \text{Near}_z \left(\frac{\text{Far}_z}{\text{Near}_z} \right)^{\text{slice} / \text{numSlices}} \end{equation}$$ 
 
-We can solve find which specific slice a pixel is in from their given Z depth using 
+Here $Z$ represents depth, $\text{Near}_z$ and $\text{Far}_z$ represent the near and far plane respectively. And slice and numSlices are the current subdivision corresponding to the depth value Z and the total number of subdivisions.
+
+I don't know about you, but I thought it was pretty neat when I first saw it. You can pretty much visualize the subdivision scheme directly from the math and, more importantly, when you manage to solve for the slice you obtain the following:
 
 <div class="equation-wrapper">
 
@@ -413,25 +425,39 @@ $$\begin{equation} \text{slice} = \left\lfloor\ \log\left( Z\right)\frac{\text{n
 
 </div>
 
-Which I have also plotted in Desmos and you can play with in [ this link ](https://www.desmos.com/calculator/bf0g6n0hqp) or just take a look at in  the plot below.
+The major advantage of equation (3) is that the only variable is Z and everything else is a constant. So, we can pre-calculate both fractions and treat them as a single multiplication and addition, which I refer to as scale and bias in my code. We can now calculate the z slice of any depth value using only a log, a multiplication and an addition operation. I plotted equations (2) and (3) on Desmos and you can play with them by following [ this link.](https://www.desmos.com/calculator/bf0g6n0hqp) Or you can also just take a look at the plot below. The view frustum is subdivided into 32 slices with a near plane at 0.3 and a far plane at 100 units.
 
 <iframe id="zslice2" src="https://www.desmos.com/calculator/msnl9ob6tx?embed" style="width:100%" frameborder="0"></iframe>
 
-Here you can check out what this depth slicing looks like in a scene like Sponza, taken directly from my engine. The colors represent the index representation in binary looping every 8 z depths. 
+Here's what the depth slicing looks like in a scene like Sponza, taken directly from my engine. The colors represent the cluster Z index in binary, looping every 8 slices. 
 
 <div class="img">
 	<img class="col gif" src="{{ site.baseurl }}/img/CG/clusters.png">
 </div>
 
- 
-So how exactly do you calculate these z clusters? Well, you can find the specific implementation I used in the following [link](https://github.com/Angelo1211/HybridRenderingEngine/blob/master/assets/shaders/ComputeShaders/clusterShader.comp). It is written in a glsl compute shader, so it might seem like nonsense if you are not familiar with it but the general idea of the algorithm is to do the following: 
+Now that we've settled for a subdivision scheme, the next thing on our to-do list is figuring out how many subdivisions we'll use on our cluster grid. The good and bad news is that, once again, it is completely up to you how to do this. My advice is that you experiment with different tile sizes and pick a number that isn't too large. I settled on a 16x9x24 subdivision because it matches my monitors aspect ratio nicely, but it  honestly could have been something else. Testing out optimal tile sizes is probably something I should do and likely a good topic for a future blog post.
 
-Also picking the tile size is kind of arbitrary, so just experiment to see what works best in your system although it probably will be a tile size that evenly divides the screen to avoid wasted threads.
+One last thing before we move on to the code. We need to decide how we'll represent the volume occupied by each cluster. We know that we want it to be a simple shape so that the light culling step can be done quickly. And we also would like if it was represented in a compact way so it doesn't eat up too much bandwidth. An easy solution is to use Axis Aligned Bounding Boxes (AABB) that enclose each cluster. AABBs built from the max and min points of the clusters will be ever so slightly larger than the actual clusters. We're okay with this since it ensures that there are no gaps in between volumes due to precision issues. Also, AABB's can be stored using only only two vec3's, a max and min point.
 
+So, with everything finally in order we can now dig in into the compute shader in charge of building a cluster grid. I had to remove some code to make this fit inside a reasonable amount of space but if you're interested in seeing the real deal, [here's a link to my compute shader.](https://github.com/Angelo1211/HybridRenderingEngine/blob/master/assets/shaders/ComputeShaders/clusterShader.comp) Let's take a look:
 
 {% highlight c# %}
-//Each cluster has it's own thread ID in x, y and z and we dispatch one thread per cluster
-for each cluster
+//Input
+uint tileSizePx;  // How many pixels does a square tile use
+uint tileIndex;   // Linear ID of the thread/cluster
+float zFar;       // Far plane distance in view space depth
+float zNear;      // Near plane distance in view space depth
+
+//Output
+struct cluster{   // A cluster bounds is represented using an AABB
+   vec4 minPoint; // We use vec4 for struct alignment purposes
+   vec4 maxPoint; 
+}
+cluster[];        // A liner list of AABB's with size = numclusters 
+
+//Each cluster has it's own thread ID in x, y and z
+//We dispatch 16x9x24 threads, one thread per cluster
+void main(){
     //Eye position is zero in view space
     const vec3 eyePos = vec3(0.0);
 
@@ -468,12 +494,24 @@ for each cluster
     //Cluster is just a SSBO made of a struct of 2 vec4's
     cluster[tileIndex].minPoint  = vec4(minPointAABB , 0.0);
     cluster[tileIndex].maxPoint  = vec4(maxPointAABB , 0.0);
-                                                                                                                
+}                                                                                                    
 {% endhighlight %}
 
-There are two functions in this process worth highlighting: the line intersection to plane and the screen2View function. The screen 2 view function converts a given point on screen space to view space by taking the reverse transformation steps of the graphics pipeline. We begin from Screen space, transsform to NDC then to clipspace and lastly to view space by using the inverse projection matrix and dividing by w. I found this function in [Matt Pettineo's Blog THE DANGER ZONE](https://mynameismjp.wordpress.com/2009/03/10/reconstructing-position-from-depth/), thanks Matt!
+This compute shader is ran once per cluster and aims to obtain the min and max points of the AABB encompassing said cluster. First, imagine we're looking at the view frustum from a front camera perspective like in the Tiled Shading animations of part 1. Each tile will have a min and max point, which in our coordinate system will be the upper right and bottom left vertices of a tile respectively. After obtaining these two points in screen-space we set their Z position to the near plane, which in NDC and in my specific setup is equal to -1. I know, I know. I should be using reverse Z, not the default OpenGL layout, I should fix that eventually.
+
+We then transform these min and max points to view space. Next, we obtain the Z value of the nearest and furthest plane of our target cluster. And, armed with the knowledge that all rays meet at the origin in view-space, a pair of min and max values in screen-space and both bounding planes of the cluster, we can obtain the four points intersecting those planes that will represent the four corners of the AABB encompassing the cluster. Lastly, we calculate the min and max of those points and save their values to the cluster array. And voilà, the grid is complete!
+
+Still, I think it would be worth it to take a look at some of the specific functions that are called inside the compute shader:
 
 {% highlight c# %}
+//Input:
+vec2 screenDimensions;  // Size of the screen in pixels for width and height
+mat4 inverseProjection; // The inverse of the projection matrix to get us to view space
+
+//Output:
+vec4 view; //The input vector transformed to view space
+
+//Changes a points coordinate system from screen-space to view-space
 vec4 screen2View(vec4 screen){
     //Convert to NDC
     vec2 texCoord = screen.xy / screenDimensions.xy;
@@ -491,28 +529,36 @@ vec4 screen2View(vec4 screen){
 }
 {% endhighlight %}
 
-To obtain the points on the cluster we use a line intersection to plane function, since we already know the plane normal from the fact we are working in viewspace, we also know the the origin of the camera in viespace is zero. The algorithm is kind of self explanatory here:
 
 {% highlight c# %}
-  //Creates a line from the eye to the screenpoint, then finds its intersection
-  //With a z oriented plane located at the given distance to the origin
-  vec3 lineIntersectionToZPlane(vec3 A, vec3 B, float zDistance){
-      //all clusters planes are aligned in the same z direction
-      vec3 normal = vec3(0.0, 0.0, 1.0);
-      //getting the line from the eye to the tile
-      vec3 ab =  B - A;
-      //Computing the intersection length for the line and the plane
-      float t = (zDistance - dot(normal, A)) / dot(normal, ab);
-      //Computing the actual xyz position of the point along the line
-      vec3 result = A + t * ab;
-      return result;
-  }
+//Input:
+float zDistance; // Normally the z-depth boundaries of a tile 
+vec3 A,B;        // Two points that are located along the same line 
+
+//Output:
+vec3 result; //A new point along the same line at the given plane
+
+//Creates a line segment from the eye to the screen point, then finds its intersection
+//With a z oriented plane located at the given distance to the origin
+vec3 lineIntersectionToZPlane(vec3 A, vec3 B, float zDistance){
+    //all clusters planes are aligned in the same z direction
+    vec3 normal = vec3(0.0, 0.0, 1.0);
+    //getting the line from the eye to the tile
+    vec3 ab =  B - A;
+    //Computing the intersection length for the line and the plane
+    float t = (zDistance - dot(normal, A)) / dot(normal, ab);
+    //Computing the actual xyz position of the point along the line
+    vec3 result = A + t * ab;
+    return result;
+}
 
 {% endhighlight %}
 
-Why do we use AABB's instead of tight frustums? Well, AABBS built from the max and min points will be ever so slightly larger than the actual clusters, this ensures that there are no gaps in between the clusters. Using AABB's also allows for storage of the cluster using only 2 vec3's, one for each corner of the AABB. Which reduces bandwidth significantly. Once we have AABB's for each cluster we are ready to use it in our per-frame light culling and active cluster determination schemes. These AABB's will be valid for as long as the frustum stays within this shape. Any changes in FOV or near and far plane settings will require a full frustum reconstruction, but I think it might not be a huge deal since RenderDoc seemed to tell me this function was not too expensive in terms of performance costs. It needs to actually be tested to see, maybe getting more clusters would screw up things not sure yet
+Specifically, let's talk about these two functions: line intersection to plane and screen to view. The latter converts a given point in screen space to view space by taking the reverse transformation steps taken by the graphics pipeline. We begin from screen space, transform to NDC space, then clip space and lastly to view space by using the inverse projection matrix and dividing by w. I found this function in Matt Pettineo's awesomely title blog: [THE DANGER ZONE](https://mynameismjp.wordpress.com/2009/03/10/reconstructing-position-from-depth/), so thanks Matt!
 
+We use the line intersection to plane function to obtain the points on the corners of the AABB that encompasses a cluster. This function is based on Christer Ericsons implementation of this test from his book [Real-Time Collision Detection](http://realtimecollisiondetection.net/blog/). The normal vector of the planes is fixed at 1.0 in the z direction because we are evaluating the points in view space and positive z points towards the camera from this frame of reference. 
 
+Our list of cluster AABBs will be valid as long as the view frustum stays the same shape. So it can be calculated once at load time and only recalculated with any changes in FOV. My initial profiling in RenderDoc seems to indicate that the GPU can do this really fast, so I think it wouldn't be a huge deal either if this was done every frame. With our cluster grid assembled we've completed step one of our 6 step plan towards building a clustered shading algorithm and can move on to finding visible clusters.
 
 ### **Determining Active Clusters**
 <p></p>

@@ -118,7 +118,7 @@
     - [X] Why compute bound algorithms are more important in the future
     - [X] Explain sources or add more sources
     - [X] Explain what you will do next
-** TODO Part 2 [5/7] [71%]
+** TODO Part 2 [6/7] [85%]
 *** DONE Intro [7/7] [100%]
     CLOSED: [2018-12-19 mié 19:40]
     - [X] Add paper
@@ -128,19 +128,21 @@
     - [X] Explain the major steps of implementing the algorithm
     - [X] Explain what steps you will not cover
     - [X] Warning on compute shaders
-*** TODO Building cluster grid [0/12] [0%]
-    - [ ] Explain clustering
-    - [ ] Explain the different kinds of clustering
-    - [ ] Explain which one we picked
-    - [ ] Show the formula
-    - [ ] Plot
-    - [ ] Describe picture
-    - [ ] Explain how you picked the tile size
-    - [ ] Explain code
-    - [ ] Fix up code a bit
-    - [ ] Specific functions we are highlighting
-    - [ ] Why do we use AABB's
-    - [ ] Problems with this approach when resizing screen
+*** DONE Building cluster grid [13/13] [100%]
+    CLOSED: [2018-12-20 jue 19:08]
+    - [X] Added link to blender files
+    - [X] Explain clustering
+    - [X] Describe picture
+    - [X] Explain the different kinds of depth subdividion
+    - [X] Explain which one we picked
+    - [X] Show the formula
+    - [X] Plot
+    - [X] Explain how you picked the tile size
+    - [X] Fix up code a bit
+    - [X] Why do we use AABB's
+    - [X] Explain compute shader
+    - [X] Specific functions we are highlighting
+    - [X] Problems with this approach when resizing screen only need to calculate once except when...
 *** DONE Determining Active Clusters [6/6] [100%]
     CLOSED: [2018-12-20 jue 12:52]
     - [X] Review code
