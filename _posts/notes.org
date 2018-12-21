@@ -187,18 +187,20 @@
    CLOSED: [2018-12-17 lun 19:06]
     - [X] Change picture of tiled shading 
     - [X] Change picture of overdraw N1
-* TODO What's left [1/9] [11%]
+* TODO What's left [9/13] [69%]
   - [X] Change post date and title.
-  - [ ] Review whole post once.
-  - [ ] Update github readme for project.
-  - [ ] Check every link is working
-  - [ ] Check github readme for correctness
-  - [ ] Check names in github readme are correct
-  - [ ] Update about page.
+  - [X] Review whole post once.
+  - [X] Check every link is working
+  - [X] Update github readme for project with article.
+  - [X] Check github readme for correctness
+  - [X] Check names in github readme are correct
+  - [X] Add release version
+  - [X] Check & update resume
+  - [X] Update about page.
   - [ ] Write twitter messages.
-  - [ ] Write reddit post.
-  - [ ] Message Kostas
   - [ ] Mesage Eric
+  - [ ] Message Kostas
+  - [ ] Write reddit post.
 * Scrapped points
 - [ ] Field of global illumination and many lights
 - [ ] Strength to turn splatting into gathering techniques
