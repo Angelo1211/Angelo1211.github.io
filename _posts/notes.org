@@ -187,7 +187,7 @@
    CLOSED: [2018-12-17 lun 19:06]
     - [X] Change picture of tiled shading 
     - [X] Change picture of overdraw N1
-* TODO What's left [9/13] [69%]
+* TODO What's left [12/13] [92%]
   - [X] Change post date and title.
   - [X] Review whole post once.
   - [X] Check every link is working
@@ -197,9 +197,9 @@
   - [X] Add release version
   - [X] Check & update resume
   - [X] Update about page.
-  - [ ] Write twitter messages.
-  - [ ] Mesage Eric
-  - [ ] Message Kostas
+  - [X] Write twitter messages.
+  - [X] Mesage Eric
+  - [X] Message Kostas
   - [ ] Write reddit post.
 * Scrapped points
 - [ ] Field of global illumination and many lights
