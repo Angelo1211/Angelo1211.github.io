@@ -338,9 +338,9 @@ To make the most out of this table it's best if you have a list of features orde
 
 In the table above, register pressure is analogous to shader complexity and can be an indication of how efficiently an algorithm is making use of GPU compute resources. Transparency and MSAA can actually be supported in both tiled and simple deferred systems but generally at a significantly higher cost when compared to forward. Also, deferred systems are definitely capable of varying shading models/materials, but require use of "shader look up tables" or some material ID system to implement. Given the relative ease with which the same features can be included in a forward engine it was important to highlight the difference.
 
-Lastly, I think it is also worth it to factor into your decision making process the current GPU performance trends, since they indicate that the rate of growth of GPU [compute capabilities has continually outpaced memory bandwidth growth](https://newq.net/dl/pub/SA2014ManyLightIntro.pdf). Hence, compute bound algorithms &mdash; like tiled or clustered shading &mdash; should be of much more interest to us in the future than algorithms bottlenecked by bandwidth. I'm aware that the link I've included above might be a bit outdated by now, so take the performance charts with a grain of salt, however, based on what I know about memory, I believe the trend probably still holds true today. But, if you do have any more recent numbers, I would love to take a look at them and maybe use them to update this post.
+Lastly, I think it would be worth your time if you factor into your decision making process the current GPU performance trends. In the past, the rate of growth of GPU [compute capabilities has continually outpaced memory bandwidth growth](https://newq.net/dl/pub/SA2014ManyLightIntro.pdf). Hence, compute bound algorithms &mdash; like tiled or clustered shading &mdash; should be of much more interest to us in the future than algorithms bottlenecked by bandwidth. I'm aware that the link I've included above might be a bit outdated by now, so take the performance charts with a grain of salt. However, based on what I know about memory, I believe the trend probably still holds true today. But, if you do have any more recent numbers, I would love to take a look at them and maybe use them to update this post.
 
-So, now that I've painted a picture of the landscape of efficient rendering algorithms I hope it'll be easier to follow along in part 2 of this post, where I'll be discussing concrete implementation details of clustered shading using the code I wrote for my engine as an example. If you still feel like you need even more background on the topic I've included more of the links that I used as references to write this post, and if that doesn't help either, feel free to message me on twitter if you have any questions!
+So, now that I've presented the landscape of efficient rendering algorithms I hope that part two of this post we'll be easier to follow along.  I'll be discussing the details of my own implementation of clustered shading using the compute shader code I wrote for my engine. If you still feel like you need even more background on the topic I've included more of the links that I used as a reference while writing this post, and if that doesn't do the trick, feel free to message me on twitter if you have any questions!
 
 
 #### Further reading:
@@ -374,20 +374,20 @@ So, now that I've painted a picture of the landscape of efficient rendering algo
 
 **Clustered Shading** was first introduced by [Ola Olsson et al. in "Clustered Deferred and Forward Shading"](http://www.cse.chalmers.se/~uffe/clustered_shading_preprint.pdf) around 2012. Since then, it has been production proven through implementation in multiple successful projects such as the 2016 reboot of [Doom](https://en.wikipedia.org/wiki/Doom_(2016_video_game)) and [Detroit: Become Human.](https://www.playstation.com/en-us/games/detroit-become-human-ps4/) It has recently gained more attention due to Unity3D's announcement that it would be supported in their new [High Definition Render Pipeline.](https://github.com/Unity-Technologies/ScriptableRenderPipeline/wiki/High-Definition-Render-Pipeline-overview) 
 
-Its popularity is not surprising given that this algorithm offers the highest light-culling efficiency among current real-time many-light algorithms. Moreover, clustered shading improves upon other light culling algorithms by virtue of being compute bound instead of bandwidth limited, which we already discussed the benefit of in part 1 of this post. 
+Its popularity is not surprising given that this algorithm offers the highest light-culling efficiency among current real-time many-light algorithms. Moreover, clustered shading improves upon other light culling algorithms by virtue of being compute bound instead of bandwidth limited, which we already discussed the benefit of in part one of this post. 
 
 At the heart of this algorithm is the cluster data structure which subdivides the view frustum into a set of volume tiles or **clusters**. This process can also be viewed as a rough voxelization of the view frustum so, given that volumetric data structures are becoming more popular by the day, this is a great opportunity to become more familiar with them. 
 
 The basic steps required to implement clustered shading are outlined in the original paper like so:
 
  1. Build the clustering data structure.
- 2. Render scene to GBuffer or Z-prep-ass.
+ 2. Render scene to GBuffer or Z Pre-pass.
  3. Find visible clusters.
  4. Reduce repeated values in the list of visible clusters.
  5. Perform light culling and assign lights to clusters.
  6. Shade samples using light list.
 
-My goal for this post is to go through the list in order and explain in detail how to implement them in your engine. However, steps two and six won't be covered in this post since they are mostly dependent on whatever shading model you're using. Also, steps three and four are combined into one and covered in the section on Determining Active Clusters, much like in [Van Oosten's implementation](https://www.3dgep.com/volume-tiled-forward-shading/).
+My goal for this part is to go through the list in order and explain in detail how I implemented each step. However, steps two and six won't be covered since they are mostly dependent on the shading model you're using. Also, steps three and four are combined into one and covered in the section on Determining Active Clusters, much like in [Van Oosten's implementation](https://www.3dgep.com/volume-tiled-forward-shading/).
 
 A quick word of warning, most of the code we'll be looking at from now on will be written in GLSL and aimed for use in compute shaders. Although clustered shading *can* be fully implemented on the CPU, I personally chose to do it on the GPU. Moving forward, I will assume a basic level of familiarity with compute shaders and shader storage buffer objects. If this is your first time encountering them, I recommend you to take a look at [this link](https://github.com/Angelo1211/HybridRenderingEngine/wiki/References#20-gpu-programming-and-parallel-computer-architectures), it's a compilation of the sources I used to learn how to write compute shaders. Also, although most of this code uses OpenGL terminology the principles should directly translate to whatever API you're using. With all warnings out of the way, let's begin! 
 
@@ -395,7 +395,7 @@ A quick word of warning, most of the code we'll be looking at from now on will b
 ### **Building a Cluster Grid**
 <p></p>
 
-There are infinitely many possible ways of grouping view samples together. For rendering, we care mostly about whatever methods help us batch together samples to reduce computations. For example, in Tiled Shading, samples are batched together by screen-space proximity, which allows for more efficient grouped lighting evaluations. However, grouping view samples using screen-space positions doesn't account very well for depth discontinuities and leads to very annoying edge cases where a single pixel movement can cause performance issues. Obviously, this is pretty undesirable, so people smarter than me came up with alternative ways to group samples together using either view space position or surface normals.
+There are infinitely many possible ways of grouping view samples together. For rendering, we care mostly about whatever methods help us batch together samples to reduce computations. For example, in Tiled Shading, samples are batched together by screen space proximity, which allows for more efficient lighting evaluations. However, grouping view samples using screen space positions doesn't account very well for depth discontinuities and leads to very annoying edge cases where a single pixel movement can cause performance issues. Obviously, this is pretty undesirable, so researchers came up with alternative ways to group samples together using either view space position or surface normals.
 
 We'll be focusing on building cluster grids that group samples based on their view space position. We'll begin by tiling the view frustum exactly the same way you would in tiled shading and then subdividing it along the depth axis multiple times. There's no catch-all solution as to how you should perform this depth subdivision and in the original paper the authors discuss three possible ways of doing it.
 
@@ -407,7 +407,7 @@ The animation above showcases these three alternative **subdivision schemes**. T
 
 The next logical step might seem trying to uniformly subdivide in view space, which is what the second image represents. This actually creates the opposite problem. The clusters close to the near plane are now huge while the ones close to the far plane are now wide and very thin which is also *No Bueno.* 
 
-Therefore, the authors of the original paper settled on a non-uniform scheme that is exponentially spaced to achieve self-similar subdivisions, as seen on the third and last image above. The idea is to counteract the NDC non-linearity with another exponential non-linearity. I included below the equation used in the paper. Here, $k$ represents the depth slice, $Z_{vs}$ the view space depth, $\text{near}$ is the near plane depth, $\theta$ represents half the field of view and $S_y$ is equal to the number of subdivision in $y$.
+Therefore, the authors of the original paper settled on a non-uniform scheme that is exponentially spaced to achieve self-similar subdivisions, as seen on the third and last image above. The idea is to counteract the NDC non-linearity with another exponential non-linearity. I included the equation used in the paper below. Here, $k$ represents the depth slice, $Z_{vs}$ the view space depth, $\text{near}$ is the near plane depth, $\theta$ represents half the field of view and $S_y$ is equal to the number of subdivision in $y$.
 
 $$\begin{equation} k = \left\lfloor\dfrac{ \log\left(-Z_{vs} / \text{near}\right)}{\log\left(1 +  \frac{2 tan \theta}{S_y}\right)}\right\rfloor \end{equation}$$ 
 
@@ -435,25 +435,25 @@ Here's what the depth slicing looks like in a scene like Sponza, taken directly 
 	<img class="col gif" src="{{ site.baseurl }}/img/CG/clusters.png">
 </div>
 
-Now that we've settled for a subdivision scheme, the next thing on our to-do list is figuring out how many subdivisions we'll use on our cluster grid. The good and bad news is that, once again, it is completely up to you how to do this. My advice is that you experiment with different tile sizes and pick a number that isn't too large. I settled on a 16x9x24 subdivision because it matches my monitors aspect ratio nicely, but it  honestly could have been something else. Testing out optimal tile sizes is probably something I should do and likely a good topic for a future blog post.
+Now that we've settled for a subdivision scheme, the next thing on our to-do list is figuring out how many subdivisions we'll use on our cluster grid. The good and bad news is that, once again, this is completely up to you. My advice is that you experiment with different tile sizes and pick a number that isn't too large. I settled on a 16x9x24 subdivision because it matches my monitors aspect ratio, but it  honestly could have been something else. Figuring out what's an optimal tile size is probably something I should do at some point, and likely a good topic for a future blog post.
 
 One last thing before we move on to the code. We need to decide how we'll represent the volume occupied by each cluster. We know that we want it to be a simple shape so that the light culling step can be done quickly. And we also would like if it was represented in a compact way so it doesn't eat up too much bandwidth. An easy solution is to use Axis Aligned Bounding Boxes (AABB) that enclose each cluster. AABBs built from the max and min points of the clusters will be ever so slightly larger than the actual clusters. We're okay with this since it ensures that there are no gaps in between volumes due to precision issues. Also, AABB's can be stored using only only two vec3's, a max and min point.
 
-So, with everything finally in order we can now dig in into the compute shader in charge of building a cluster grid. I had to remove some code to make this fit inside a reasonable amount of space but if you're interested in seeing the real deal, [here's a link to my compute shader.](https://github.com/Angelo1211/HybridRenderingEngine/blob/master/assets/shaders/ComputeShaders/clusterShader.comp) Let's take a look:
+So, with everything finally in order we can now dig in into the compute shader in charge of building a cluster grid. I had to remove some code to make this fit inside a reasonable amount of space but if you're interested in seeing the real deal, [here's a link to my code.](https://github.com/Angelo1211/HybridRenderingEngine/blob/master/assets/shaders/ComputeShaders/clusterShader.comp) Let's take a look:
 
 {% highlight c# %}
 //Input
-uint tileSizePx;  // How many pixels does a square tile use
+uint tileSizePx;  // How many pixels in x does a square tile use
 uint tileIndex;   // Linear ID of the thread/cluster
 float zFar;       // Far plane distance in view space depth
 float zNear;      // Near plane distance in view space depth
 
 //Output
-struct cluster{   // A cluster bounds is represented using an AABB
-   vec4 minPoint; // We use vec4 for struct alignment purposes
+struct cluster{   // A cluster volume is represented using an AABB
+   vec4 minPoint; // We use vec4s instead of a vec3 for memory alignment purposes
    vec4 maxPoint; 
 }
-cluster[];        // A liner list of AABB's with size = numclusters 
+cluster[];        // A linear list of AABB's with size = numclusters 
 
 //Each cluster has it's own thread ID in x, y and z
 //We dispatch 16x9x24 threads, one thread per cluster
@@ -477,11 +477,11 @@ void main(){
     vec3 minPoint_vS = screen2View(minPoint_sS).xyz;
 
     //Near and far values of the cluster in view space
-    //We use equation (2) directly to obtain the tile vales
+    //We use equation (2) directly to obtain the tile values
     float tileNear  = -zNear * pow(zFar/ zNear, gl_WorkGroupID.z/float(gl_NumWorkGroups.z));
     float tileFar   = -zNear * pow(zFar/ zNear, (gl_WorkGroupID.z + 1) /float(gl_NumWorkGroups.z));
 
-    //Finding the 4 intersection points made from the maxPoint to the cluster near/far plane
+    //Finding the 4 intersection points made from each point to the cluster near/far plane
     vec3 minPointNear = lineIntersectionToZPlane(eyePos, minPoint_vS, tileNear );
     vec3 minPointFar  = lineIntersectionToZPlane(eyePos, minPoint_vS, tileFar );
     vec3 maxPointNear = lineIntersectionToZPlane(eyePos, maxPoint_vS, tileNear );
@@ -497,9 +497,9 @@ void main(){
 }                                                                                                    
 {% endhighlight %}
 
-This compute shader is ran once per cluster and aims to obtain the min and max points of the AABB encompassing said cluster. First, imagine we're looking at the view frustum from a front camera perspective like in the Tiled Shading animations of part 1. Each tile will have a min and max point, which in our coordinate system will be the upper right and bottom left vertices of a tile respectively. After obtaining these two points in screen-space we set their Z position to the near plane, which in NDC and in my specific setup is equal to -1. I know, I know. I should be using reverse Z, not the default OpenGL layout, I should fix that eventually.
+This compute shader is ran once per cluster and aims to obtain the min and max points of the AABB encompassing said cluster. First, imagine we're looking at the view frustum from a front camera perspective, like we did in the Tiled Shading animations of part one. Each tile will have a min and max point, which in our coordinate system will be the upper right and bottom left vertices of a tile respectively. After obtaining these two points in screen space we set their Z position equal to the near plane, which in NDC and in my specific setup is equal to -1 &mdash; I know, I know. I should be using reverse Z, not the default OpenGL layout, I'll fix that eventually.
 
-We then transform these min and max points to view space. Next, we obtain the Z value of the nearest and furthest plane of our target cluster. And, armed with the knowledge that all rays meet at the origin in view-space, a pair of min and max values in screen-space and both bounding planes of the cluster, we can obtain the four points intersecting those planes that will represent the four corners of the AABB encompassing the cluster. Lastly, we calculate the min and max of those points and save their values to the cluster array. And voilà, the grid is complete!
+Then, we transform these min and max points to view space. Next, we obtain the Z value of the "near" and "far" plane of our target mini-frustum / cluster. And, armed with the knowledge that all rays meet at the origin in view space, a pair of min and max values in screen space and both bounding planes of the cluster, we can obtain the four points intersecting those planes that will represent the four corners of the AABB encompassing said cluster. Lastly, we find the min and max of those points and save their values to the cluster array. And voilà, the grid is complete!
 
 Still, I think it would be worth it to take a look at some of the specific functions that are called inside the compute shader:
 
@@ -511,7 +511,7 @@ mat4 inverseProjection; // The inverse of the projection matrix to get us to vie
 //Output:
 vec4 view; //The input vector transformed to view space
 
-//Changes a points coordinate system from screen-space to view-space
+//Changes a points coordinate system from screen space to view space
 vec4 screen2View(vec4 screen){
     //Convert to NDC
     vec2 texCoord = screen.xy / screenDimensions.xy;
@@ -558,7 +558,7 @@ Specifically, let's talk about these two functions: line intersection to plane a
 
 We use the line intersection to plane function to obtain the points on the corners of the AABB that encompasses a cluster. This function is based on Christer Ericsons implementation of this test from his book [Real-Time Collision Detection](http://realtimecollisiondetection.net/blog/). The normal vector of the planes is fixed at 1.0 in the z direction because we are evaluating the points in view space and positive z points towards the camera from this frame of reference. 
 
-Our list of cluster AABBs will be valid as long as the view frustum stays the same shape. So it can be calculated once at load time and only recalculated with any changes in FOV. My initial profiling in RenderDoc seems to indicate that the GPU can do this really fast, so I think it wouldn't be a huge deal either if this was done every frame. With our cluster grid assembled we've completed step one of our 6 step plan towards building a clustered shading algorithm and can move on to finding visible clusters.
+Our list of cluster AABBs will be valid as long as the view frustum stays the same shape. So, it can be calculated once at load time and only recalculated with any changes in FOV or other view field alterning camera properties. My initial profiling in RenderDoc seems to indicate that the GPU can run this shader really quickly, so I think it wouldn't be a huge deal either if this was done every frame. With our cluster grid assembled we've completed step one of our 6 step plan towards building a clustered shading algorithm and can move on to finding visible clusters.
 
 ### **Determining Active Clusters**
 <p></p>
@@ -611,7 +611,7 @@ uint getClusterIndex(vec3 pixelCoord){
 }
 {% endhighlight %}
 
-These two functions form the first compute shader pass and are equivalent to step three "Find visible clusters." In function one, **markActiveClusters**, each thread represents a pixel and its job is to check which cluster it belongs to. Any cluster that we can see is considered active and hence we'll set it as active in the clusterActive array. The second function, **getClusterIndex**, is the workhorse of the compute shader. It is responsible for finding which cluster a pixel belongs to using depth and screen-space coordinates. To increase efficiency, both Van Oosten and Olsson compact this list into a set of unique clusters. 
+These two functions form the first compute shader pass and are equivalent to step three "Find visible clusters." In function one, **markActiveClusters**, each thread represents a pixel and its job is to check which cluster it belongs to. Any cluster that we can see is considered active and hence we'll set it as active in the clusterActive array. The second function, **getClusterIndex**, is the workhorse of the compute shader. It is responsible for finding which cluster a pixel belongs to using depth and screen space coordinates. To increase efficiency, both Van Oosten and Olsson compact this list into a set of unique clusters. 
 
 {% highlight c# %}
 //Input
@@ -631,16 +631,16 @@ void buildCompactClusterList(){
 }
 {% endhighlight %}
 
-The **globalActiveClusterCount** variable keeps track of how many active clusters are currently in the scene and the **uniqueActiveClusters** array records the indices of those clusters. The **buildCompactClusterList** compute shader can be run as a separate shader invocation with threads representing clusters and dispatch size equal to the total number of clusters in the scene. Once done, it will output a list of active clusters for us to cull against. We can even launch the next light culling compute shaders indirectly by using the **globalActiveClusterCount** value as dispatch size. With this completed, we now have succesfully implemented steps three and four of our original list and we can move on to light culling.
+The **globalActiveClusterCount** variable keeps track of how many active clusters are currently in the scene and the **uniqueActiveClusters** array records the indices of those clusters. The **buildCompactClusterList** compute shader can be run as a separate shader invocation with threads representing clusters and dispatch size equal to the total number of clusters in the scene. Once done, it will output a list of active clusters for us to cull against. We can even launch the next light culling compute shaders indirectly by using the **globalActiveClusterCount** value as the dispatch size. With this completed, we now have succesfully implemented steps three and four of our original list and we can move on to light culling.
 
 ### **Light Culling Methods**
 <p></p>
 
-So with a cluster grid and a list of active clusters under our belt we can finally move on to the fun part of clustered shading, the light culling step. As a reminder, this step aims to assign lights to each cluster based on their view space position. The main idea is that we perform something very similar to a "light volume collision detection" against the active clusters in the scene and append any lights within a cluster to a local list of lights.  I've recycled the following animation from part one of this post since I think it does a good job of showcasing the basics of the process:
+So, with a cluster grid and a list of active clusters ready to go we can finally move on to the most fun part of clustered shading, the light culling step. As a reminder, this step aims to assign lights to each cluster based on their view space position. The main idea is that we perform something very similar to a "light volume collision detection" against the active clusters in the scene and append any lights within a cluster to a local list of lights.  I've recycled the following animation from part one of this post since I think it does a good job of showcasing the basics of the process:
 
 <iframe id="clus2" class ="slideshow-iframe" src="{{ site.baseurl }}/slides/clustered.html" style = "width:100%" frameborder="0" scrolling="no"></iframe>
 
-Performing this "light volume collision detection" requires that I define clearly what I mean by **light volume**." In a nutshell, lights become dimmer with distance. After a certain point they are so dim we can assume they aren't contributing to shading anymore so, we mark those points as our boundary. The volume contained within the boundary is our light volume and if that volume intersects with the AABB of a cluster, we assume that light is contained within the cluster. We'll be using a pretty common function for collision I found in Crister Ericsons book [Real-Time Collision Detection](http://realtimecollisiondetection.net/blog/).
+Performing this "light volume collision detection" requires that I define clearly what I mean by **light volume**." In a nutshell, lights become dimmer with distance. After a certain point they are so dim we can assume they aren't contributing to shading anymore so, we mark those points as our boundary. The volume contained within the boundary is our light volume and if that volume intersects with the AABB of a cluster, we assume that light is contained within the cluster. We'll be using a pretty common function for testing this I obtained from Crister Ericsons book [Real-Time Collision Detection](http://realtimecollisiondetection.net/blog/).
 
 {% highlight c# %}
 //Input:
@@ -659,7 +659,7 @@ bool testSphereAABB(uint light, uint tile){
 
 The main idea is that we check the distance between the point light sphere center and the AABB. If the distance is less than the radius they are intersecting. For spotlights, the light volume and consequently the collision tests will be very different. However, I haven't implemented them in my engine at all so I can't tell you much about them yet. :( Check out [this](https://newq.net/dl/pub/SA2014Practical.pdf) presentation by Emil Persson that explains how they implemented spotlight culling in Just Cause 3 if you do want to know more. 
 
-Our last stop before we begin our breakdown of the light culling compute shader is a quick overview of the data structures we'll be using. They're implemented solely on the GPU using shader storage buffer objects, so keep in mind that reads and writes have incoherent memory access and **will** require the appropriate barriers to avoid any disasters. As we describe them, try to keep in mind the following diagram. It will come in handy while you work towards building your own mental picture of how all the pieces fit in together:
+Our last stop before we begin our step by step breakdown is a quick overview of the data structures we'll be using. They're implemented solely on the GPU using shader storage buffer objects, so keep in mind that reads and writes have incoherent memory access and **will** require the appropriate barriers to avoid any disasters. As we describe them, keep referring back to the following diagram. It will come in handy while you work towards building your own mental picture of how all the pieces fit in together:
 
 <div class="img">
 	<img class="col gif" src="{{ site.baseurl }}/img/CG/DS.png">
@@ -669,10 +669,10 @@ Our last stop before we begin our breakdown of the light culling compute shader 
 
 We begin by examining the **global light list.** It is a pretty simple array containing all of the lights in a given scene with a size equivalent to the maximum amount of lights possible in the scene. Every light will have its own unique index based on its location in this array and that index is what we'll be storing in our second data structure, the **global light index list**. This array will contain the indices of all of the active lights in the scene grouped by cluster. This grouping is not actually explicit since this array does not contain any information as to how these indices relate to their parent clusters. We store that information in our last data structure, the **light grid.** This array has as many elements as there are clusters and each element contains two unsigned ints, one that stores the offset to the global light index list and another that contains the number of lights intersecting the cluster.
 
-However, unlike what's shown in the diagram, the global light index list **does *not* store the indices of the lights intersecting each cluster sequentially.** In fact, it'll store the indices in a somewhat random order. This was a huge source of confusion for me that took me way longer than it should have to realize, so I thought it would be worth mentioning. If you're wondering why we need such a convoluted data structure, the quick answer is that it plays nicely with the GPU and works well in parallel. Also, it allows both compute shaders and pixel shaders to read the same data structure and execute the same code. Lastly, it is very memory efficient since clusters can easily share the same lights since we are storing indices to the global light list instead of the lights themselves.
+However, unlike what's shown in the diagram, the global light index list **does *not* necessarily store the indices for each cluster sequentially.** In fact, it might store them in a completely random order. This was a huge source of confusion for me that took way longer than it should have to clear up, so I thought it would be worth mentioning just in case. If you're wondering why we need such a convoluted data structure, the quick answer is that it plays nicely with the GPU and works well in parallel. Also, it allows both compute shaders and pixel shaders to read the same data structure and execute the same code. Lastly, it is pretty memory efficient since clusters tend to share the same lights and by storing indices to the global light list instead of the lights themselves we save up memory.
 
 
-We now have all the pieces on the board and can take a look into what it takes to cull lights in clustered shading. Because my compute shader would not fit properly in this post I shortened it a bit in the section below, if you want to check out the real deal, as always, [here's the link.](https://github.com/Angelo1211/HybridRenderingEngine/blob/master/assets/shaders/ComputeShaders/clusterCullLightShader.comp) 
+Now that we have all the pieces laid out on the board we can take a look at what it takes to cull lights in clustered shading. Because my compute shader would not fit properly in this post I shortened it a bit, if you want to check out the real deal, as always, [here's the link.](https://github.com/Angelo1211/HybridRenderingEngine/blob/master/assets/shaders/ComputeShaders/clusterCullLightShader.comp) 
 
 {% highlight c# %}
 //Input
@@ -747,9 +747,9 @@ In the current version of my cluster shading pipeline I'm not performing any act
 
 Thread groups sizes are actually relevant in this compute shader since I'm using shared GPU memory to reduce the number of reads and writes by only loading each light once per thread group, instead of once per cluster. With that in mind, let's break down what's going on within the shader. First, each thread gets its bearings and begins by calculating some initialization values. For example, how many threads there are in a thread group, what it's linear cluster index is and in how many passes it shall traverse the global light list. Next, each thread initializes a count variable of how many lights intersect its cluster and a local index light array to zero. 
 
-Once setup is complete, each thread group begins a traversal of a batch of lights. Each individual thread will be responsible for loading a light and writing it to shared memory so other threads can read it. A barrier after this step ensures all threads are done loading before continuing. Then, each thread performs collision detection for its cluster, using the AABB we determined in step one, against every light in the shared memory array, writing all intersections to the local thread index array. We repeat these steps until every light in the global light array has been evaluated.
+Once setup is complete, each thread group begins a traversal of a batch of lights. Each individual thread will be responsible for loading a light and writing it to shared memory so other threads can read it. A barrier after this step ensures all threads are done loading before continuing. Then, each thread performs collision detection for its cluster, using the AABB we determined in step one, against every light in the shared memory array, writing all positive intersections to the local thread index array. We repeat these steps until every light in the global light array has been evaluated.
 
-Next, we atomically add the local number of active lights in a cluster to the globalIndexCount and store the global count value before we add to it. This number is our offset to the global light index list and due to the nature of atomic operations we know that it will be unique per cluster, since only one thread accesses it at any given time. Then, we populate the global light index list by transferring the values from the **local** light index list (named visibleLightIndices in the code) into the **global** light index list starting at the offset index we just obtained. Finally, we write the offset value and the count of how many lights intersected the cluster to the lightGrid array at the given cluster index.
+Next, we atomically add the local number of active lights in a cluster to the globalIndexCount and store the global count value before we add to it. This number is our offset to the global light index list and due to the nature of atomic operations we know that it will be unique per cluster, since only one thread has access to it at any given time. Then, we populate the global light index list by transferring the values from the **local** light index list (named visibleLightIndices in the code) into the **global** light index list starting at the offset index we just obtained. Finally, we write the offset value and the count of how many lights intersected the cluster to the lightGrid array at the given cluster index.
 
 Once this shader is done running the data structures will contain all of the values necessary for a pixel shader to read the list of lights that are affecting a given fragment, since we can use the getClusterIndex function from the previous section to find which cluster a fragment belongs to. With this, we've completed step five and therefore have all the building blocks in place for a working clustered shading implementation! Of course, I'll be the first to admit that there is still lots of room for improvement. But even this simple culling method will still manage lights in the order of tens of thousands. If you're hungry for more, the next section will briefly mention what are some possible optimizations and discuss where you can go read more about them.
 
@@ -776,7 +776,7 @@ Over the coming months, as I continue to work on my renderer, I expect to have t
 
 So I would be remiss not to end this post by sharing some great presentations from other more experienced devs where they discuss their own versions of Clustered shading. As you can imagine, no two are alike, both in the nitty-gritty details of their implementations and in the large scale differences found in the genres of the games they make. It speaks volumes for the flexibility of this algorithm and hints towards a future where hybrid forward/deferred engines are the norm for AAA products that demand the highest visual fidelity. 
 
-Also, hey, I've technically implemented a Clustered Renderer too! If you've forgotten about it after reading this whole post I don't blame you, but [here's a link](https://github.com/Angelo1211/HybridRenderingEngine) so that you don't have to scroll all the way to the top. It's a simplified implementation with much of the code commented so you &mdash; and I in about a year when I forget &mdash; can follow along easily. Okay okay, enough self promotion, here are the goods:
+Also, hey, I've technically implemented a Clustered Renderer too! If you've forgotten about it after reading this whole post I don't blame you, but [here's a link](https://github.com/Angelo1211/HybridRenderingEngine) so that you don't have to scroll all the way to the top. It's a simplified implementation with much of the code commented so you &mdash; and me in about a year when I inevitably forget about it &mdash; can follow along easily. Okay okay, enough self promotion, here are the goods:
 
 * [Clustered Shading in the Wild by Ola Olsson](http://efficientshading.com/blog/)
 * [(Doom 2016)The devil is in the Details by Tiago Sousa and Jean Geffrey](https://www.slideshare.net/TiagoAlexSousa/siggraph2016-the-devil-is-in-the-details-idtech-666?next_slideshow=1)
@@ -794,7 +794,7 @@ Also, hey, I've technically implemented a Clustered Renderer too! If you've forg
 * [ Efficient Virtual Shadow Maps for Many Lights by Ola Olsson et al.](http://www.cse.chalmers.se/~uffe/ClusteredWithShadows.pdf)
 
 ---
-*Psst, hey you! If you've gotten this far I'd like to thank you for taking the time to read this post. I hope you enjoyed reading it as much as I did writing it. Just letting you know that I'm currently looking for a Graphics related position. If you're interested or know of any opportunities, I'd appreciate it if you'd let me know. Feel free to check out my "about" page for a choice selection of social media where you can reach me!*
+*Psst, hey you! If you've gotten this far I'd like to thank you for taking the time to read this post. I hope you enjoyed reading it as much as I did writing it. Just letting you know that I'm currently looking for a Graphics Programming position. If you're interested or know of any opportunities, I'd appreciate it if you'd let me know. Feel free to check out my "about" page for a choice selection of social media where you can reach me!*
 
 *Any questions? Dead links? Complaints to management? My email is angelo12@vt.edu but you can also find me on twitter at [@aortizelguero](https://twitter.com/aortizelguero).*
 
