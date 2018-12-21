@@ -1,8 +1,8 @@
 ---
 layout: post
-title:  A Brief Primer On Efficient Rendering Algorithms & Clustered Shading.
-date:   2018-12-02 23:13:40
-description: An introduction to basic efficient rendering concepts and an overview of my Clustered Shading implementation. 
+title:  A Primer On Efficient Rendering Algorithms & Clustered Shading.
+date:   2018-12-21 09:00:00
+description: An introduction to efficient rendering concepts and an overview of my Clustered Shading implementation. 
 ---
 
 ### **Table of Contents**
@@ -636,70 +636,122 @@ The **globalActiveClusterCount** variable keeps track of how many active cluster
 ### **Light Culling Methods**
 <p></p>
 
-So because I think this visualization looks pretty cool I'd like to include it again so we can discuss it in some more detail.
+So with a cluster grid and a list of active clusters under our belt we can finally move on to the fun part of clustered shading, the light culling step. As a reminder, this step aims to assign lights to each cluster based on their view space position. The main idea is that we perform something very similar to a "light volume collision detection" against the active clusters in the scene and append any lights within a cluster to a local list of lights.  I've recycled the following animation from part one of this post since I think it does a good job of showcasing the basics of the process:
 
 <iframe id="clus2" class ="slideshow-iframe" src="{{ site.baseurl }}/slides/clustered.html" style = "width:100%" frameborder="0" scrolling="no"></iframe>
 
-So the light culling compute shader is much larger and would not fit properly in this post and make it much larger than it already is, so [here's a link](https://github.com/Angelo1211/HybridRenderingEngine/blob/master/assets/shaders/ComputeShaders/clusterCullLightShader.comp) At this point, remember, we have a list of active clusters, their AABB's and a list of lights in the scene. With this and a know radius of effect of a light we can simply perform collision detection in parallel for each light against each active cluster. The data structure used is somewhat convoluted, so I won't cover it in much detail. The main idea is something like this:
-
-* DS1: **Cluster Grid Light list** (size of numClusters):
-    * Offset to beginning of light Index DS
-    * Number of lights in cluster
-* DS2: **Light Index List** (size of numClusters * worst case scenario light per cluster (100)**
-    * Index to scene light list
-* DS3: **Scene light list** (size of number of lights in scene)
-    * Struct of point lights
-       * Position
-       * Color
-       * Enabled
-       * Range 
-
-These data structures are necessary to perform the checks in parallel effectively. What essentially ends up happeneing is that lights get grouped spatially and their indexes get added to the light index list.
-
-In pseudocode the process goes something like this, and warning, it's kind of hard to follow because I was looking for max performance by interchangeably using the same variables to mean different things in different contexts, for example although batch refers to a batch of lights it can also refer to a batch of clusters. I'm sorry but this is the best I could come up with that was fast. 
+Performing this "light volume collision detection" requires that I define clearly what I mean by **light volume**." In a nutshell, lights become dimmer with distance. After a certain point they are so dim we can assume they aren't contributing to shading anymore so, we mark those points as our boundary. The volume contained within the boundary is our light volume and if that volume intersects with the AABB of a cluster, we assume that light is contained within the cluster. We'll be using a pretty common function for collision I found in Crister Ericsons book [Real-Time Collision Detection](http://realtimecollisiondetection.net/blog/).
 
 {% highlight c# %}
-// This is the gist of what is happening in the compute shader, but simplified a bit
-void main(){
-    for cluster in scene{
-        for light in scene {
-            localLightArray[100];
-            localLightCount = 0;
-           
+//Input:
+uint light; // A given light index in the shared lights array
+uint tile;  // The cluster index we are testing
 
-            // Add to a cluster local list of lights
-            if light.enabled == 1{
-                if light in cluster{
-                    localLightArray[lightCount]  = light;
-                    localLightCount++;
-                }
-            }
-        }
-        
-        //Make sure all clusters have finished evaluating 
-        //all lights at the same time
-        barrier();
-        
-        //The atomic addition to the global light count will return
-        //the previous value before adding, we can use this as an 
-        //offset into the global light index list
-        offset = atomicAdd(globalLightCount, localLightCount); 
-        
-        //For each light in the local list add it sequencially to the
-        //global light index list starting from the offset 
-        for index in range(0, localLightCount){
-            globalLightIndexList[offset + index] = localLight[index];
-        }
-        
-        //Fillin in the cluster grid light list with the offset and count
-        //to traverse the light index list properly
-        lightGrid[cluster].offset = offset;
-        lightGrid[clustre].count  = localLightCount
-    }
+//Checking for intersection given a cluster AABB and a light volume 
+bool testSphereAABB(uint light, uint tile){
+    float radius = sharedLights[light].range;
+    vec3 center  = vec3(viewMatrix * sharedLights[light].position);
+    float squaredDistance = sqDistPointAABB(center, tile);
+
+    return squaredDistance <= (radius * radius);
 }
 {% endhighlight %}
 
-Once this shader is run the data structures mentioned above will be filled with the values necessary for a shader to obtain teh lights that are affecting a given cluster. It can be easily accessed from the fragment shader if we include a function that can directly obtain the given cluster from a screen value and a depth, like the one we found in the cluster determination section!
+The main idea is that we check the distance between the point light sphere center and the AABB. If the distance is less than the radius they are intersecting. For spotlights, the light volume and consequently the collision tests will be very different. However, I haven't implemented them in my engine at all so I can't tell you much about them yet. :( Check out [this](https://newq.net/dl/pub/SA2014Practical.pdf) presentation by Emil Persson that explains how they implemented spotlight culling in Just Cause 3 if you do want to know more. 
+
+Our last stop before we begin our breakdown of the light culling compute shader is a quick overview of the data structures we'll be using. They're implemented solely on the GPU using shader storage buffer objects, so keep in mind that reads and writes have incoherent memory access and **will** require the appropriate barriers to avoid any disasters. As we describe them, try to keep in mind the following diagram. It will come in handy while you work towards building your own mental picture of how all the pieces fit in together:
+
+<div class="img">
+	<img class="col gif" src="{{ site.baseurl }}/img/CG/DS.png">
+</div>
+
+*This diagram was made by Ola Olsson and used in his [2014 Siggraph Asia course](https://www.zora.uzh.ch/id/eprint/107598/1/a11-olsson.pdf)*
+
+We begin by examining the **global light list.** It is a pretty simple array containing all of the lights in a given scene with a size equivalent to the maximum amount of lights possible in the scene. Every light will have its own unique index based on its location in this array and that index is what we'll be storing in our second data structure, the **global light index list**. This array will contain the indices of all of the active lights in the scene grouped by cluster. This grouping is not actually explicit since this array does not contain any information as to how these indices relate to their parent clusters. We store that information in our last data structure, the **light grid.** This array has as many elements as there are clusters and each element contains two unsigned ints, one that stores the offset to the global light index list and another that contains the number of lights intersecting the cluster.
+
+However, unlike what's shown in the diagram, the global light index list **does *not* store the indices of the lights intersecting each cluster sequentially.** In fact, it'll store the indices in a somewhat random order. This was a huge source of confusion for me that took me way longer than it should have to realize, so I thought it would be worth mentioning. If you're wondering why we need such a convoluted data structure, the quick answer is that it plays nicely with the GPU and works well in parallel. Also, it allows both compute shaders and pixel shaders to read the same data structure and execute the same code. Lastly, it is very memory efficient since clusters can easily share the same lights since we are storing indices to the global light list instead of the lights themselves.
+
+
+We now have all the pieces on the board and can take a look into what it takes to cull lights in clustered shading. Because my compute shader would not fit properly in this post I shortened it a bit in the section below, if you want to check out the real deal, as always, [here's the link.](https://github.com/Angelo1211/HybridRenderingEngine/blob/master/assets/shaders/ComputeShaders/clusterCullLightShader.comp) 
+
+{% highlight c# %}
+//Input
+uint threadCount; // Number of threads in a group 
+uint lightCount;  // Number of total lights in the scene
+uint numBatches;  // Number of groups of lights that will be completed
+sharedLights[];   // A grouped-shared array which contains all the lights being evaluated
+
+//Output
+lightGrid[]; // Array containing offset and number of lights in a cluster
+uint globalIndexCount;  // How many lights are active in the scene
+globalLightIndexList[]; // List of active lights in the scene
+
+// Runs in batches of multiple Z slices at once
+// In my implementation 6 batches 
+// We begin by each thread representing a cluster
+// Then in the light traversal loop they change to representing lights
+// Then change again near the end to represent clusters
+// NOTE: Tiles actually mean clusters, it's just a legacy name from tiled shading
+void main(){
+    //Reset every frame
+    globalIndexCount = 0;
+    uint threadCount = gl_WorkGroupSize.x * gl_WorkGroupSize.y * gl_WorkGroupSize.z;
+    uint lightCount  = pointLight.length();
+    uint numBatches = (lightCount + threadCount -1) / threadCount;
+    uint tileIndex = gl_GlobalInvocationID;
+
+    //Local thread variables 
+    uint visibleLightCount = 0;
+    uint visibleLightIndices[100];
+    
+    // Traversing list of lights in batches of equal size to thread 
+    // group which is equal to 4 slices of the cluster grid at once
+    for( uint batch = 0; batch < numBatches; ++batch){
+        uint lightIndex = batch * threadCount + gl_LocalInvocationIndex;
+
+        //Prevent overflow by clamping to last light which is always null
+        lightIndex = min(lightIndex, lightCount);
+
+        //Populating shared light array
+        sharedLights[gl_LocalInvocationIndex] = pointLight[lightIndex];
+        barrier();
+
+        //Iterating within the current batch of lights
+        for( uint light = 0; light < threadCount; ++light){
+            if( sharedLights[light].enabled  == 1){
+                //Where the magic happens
+                if( testSphereAABB(light, tileIndex) ){
+                    visibleLightIndices[visibleLightCount] = batch * threadCount + light;
+                    visibleLightCount += 1;
+                }
+            }
+        }
+    }
+
+    //We want all thread groups to have completed the light tests before continuing
+    barrier();
+    
+    //Adding the light indeces to the cluster light index list
+    uint offset = atomicAdd(globalIndexCount, visibleLightCount);
+    for(uint i = 0; i < visibleLightCount; ++i){
+        globalLightIndexList[offset + i] = visibleLightIndices[i];
+    }
+    
+    //Updating the light grid for each cluster
+    lightGrid[tileIndex].offset = offset;
+    lightGrid[tileIndex].count = visibleLightCount;
+}
+{% endhighlight %}
+
+In the current version of my cluster shading pipeline I'm not performing any active cluster determination. I wasn't running a Z Pre-pass until very recently so instead, I've chosen to check lights against every cluster of the view frustum. This is also the case in the compute shader above, which performs light culling for every cluster in the cluster grid. The shader is dispatched six times because each thread group contains four z slices $(24/4 = 6)$, which is the largest amount I could comfortably fit inside a single thread group. 
+
+Thread groups sizes are actually relevant in this compute shader since I'm using shared GPU memory to reduce the number of reads and writes by only loading each light once per thread group, instead of once per cluster. With that in mind, let's break down what's going on within the shader. First, each thread gets its bearings and begins by calculating some initialization values. For example, how many threads there are in a thread group, what it's linear cluster index is and in how many passes it shall traverse the global light list. Next, each thread initializes a count variable of how many lights intersect its cluster and a local index light array to zero. 
+
+Once setup is complete, each thread group begins a traversal of a batch of lights. Each individual thread will be responsible for loading a light and writing it to shared memory so other threads can read it. A barrier after this step ensures all threads are done loading before continuing. Then, each thread performs collision detection for its cluster, using the AABB we determined in step one, against every light in the shared memory array, writing all intersections to the local thread index array. We repeat these steps until every light in the global light array has been evaluated.
+
+Next, we atomically add the local number of active lights in a cluster to the globalIndexCount and store the global count value before we add to it. This number is our offset to the global light index list and due to the nature of atomic operations we know that it will be unique per cluster, since only one thread accesses it at any given time. Then, we populate the global light index list by transferring the values from the **local** light index list (named visibleLightIndices in the code) into the **global** light index list starting at the offset index we just obtained. Finally, we write the offset value and the count of how many lights intersected the cluster to the lightGrid array at the given cluster index.
+
+Once this shader is done running the data structures will contain all of the values necessary for a pixel shader to read the list of lights that are affecting a given fragment, since we can use the getClusterIndex function from the previous section to find which cluster a fragment belongs to. With this, we've completed step five and therefore have all the building blocks in place for a working clustered shading implementation! Of course, I'll be the first to admit that there is still lots of room for improvement. But even this simple culling method will still manage lights in the order of tens of thousands. If you're hungry for more, the next section will briefly mention what are some possible optimizations and discuss where you can go read more about them.
 
 ### **Optimization Techniques**
 <p></p>

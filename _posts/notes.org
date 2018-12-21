@@ -1,5 +1,6 @@
 
-* TODO First Edit [3/4] [75%]
+* DONE First Edit [4/4] [100%]
+  CLOSED: [2018-12-21 vie 09:54]
 <2018-12-13 jue>
 ** DONE Intro 
 *** P1
@@ -118,7 +119,8 @@
     - [X] Why compute bound algorithms are more important in the future
     - [X] Explain sources or add more sources
     - [X] Explain what you will do next
-** TODO Part 2 [6/7] [85%]
+** DONE Part 2 [7/7] [100%]
+   CLOSED: [2018-12-21 vie 09:54]
 *** DONE Intro [7/7] [100%]
     CLOSED: [2018-12-19 mié 19:40]
     - [X] Add paper
@@ -151,17 +153,20 @@
     - [X] Explain basics of algorithm
     - [X] Explain some of the functions
     - [X] Helps for launching compute shader indirectly
-*** TODO Light culling Methods [0/10] [0%]
-    - [ ] Repeat visualization because it is cool
-    - [ ] Light culling compute shader is much larger
-    - [ ] Explain the major data structures
-    - [ ] Remind readers of what we already have achieved so far
-    - [ ] How we check light intersection
-    - [ ] Add picture of data structure?
-    - [ ] Why do we need data structures that are so convoluted
-    - [ ] Carefully explain code section
-    - [ ] What do we do after the light list has been completed
-    - [ ] Discuss BVH
+*** DONE Light culling Methods [12/12] [100%]
+    CLOSED: [2018-12-21 vie 09:54]
+    - [X] Fix data structure list
+    - [X] Add picture of data structure
+    - [X] Update code 
+    - [X] Intro blurb
+    - [X] Repeat visualization because it is cool
+    - [X] How we check light intersection
+    - [X] Explain sphere intersection function
+    - [X] Explain the major data structures
+    - [X] Why do we need data structures that are so convoluted
+    - [X] Light culling compute shader is much larger
+    - [X] Carefully explain code section
+    - [X] What do we do after the light list has been completed
 *** DONE Optimization techniques [6/6] [100%]
     CLOSED: [2018-12-17 lun 09:27]
     - [X] Mention that there is still things that could be improved
@@ -182,9 +187,22 @@
    CLOSED: [2018-12-17 lun 19:06]
     - [X] Change picture of tiled shading 
     - [X] Change picture of overdraw N1
+* TODO What's left [1/9] [11%]
+  - [X] Change post date and title.
+  - [ ] Review whole post once.
+  - [ ] Update github readme for project.
+  - [ ] Check every link is working
+  - [ ] Check github readme for correctness
+  - [ ] Check names in github readme are correct
+  - [ ] Update about page.
+  - [ ] Write twitter messages.
+  - [ ] Write reddit post.
+  - [ ] Message Kostas
+  - [ ] Mesage Eric
 * Scrapped points
 - [ ] Field of global illumination and many lights
 - [ ] Strength to turn splatting into gathering techniques
+- [ ] Discuss BVH and other stuff
 * Ideas
 - Thermodynamics analogy to computing resources?! GPU - CPU etc
 - How to determine how close we are to peak rendering capacity 
