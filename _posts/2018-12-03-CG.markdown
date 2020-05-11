@@ -2,7 +2,7 @@
 layout: post
 title:  A Primer On Efficient Rendering Algorithms & Clustered Shading.
 date:   2018-12-21 09:00:00
-description: An introduction to efficient rendering concepts and an overview of my Clustered Shading implementation. 
+description: An introduction to efficient rendering concepts and an overview of my Clustered Shading implementation.
 ---
 
 ### **Table of Contents**
@@ -50,14 +50,14 @@ Part one is a high-level overview of efficient rendering techniques. It follows 
 *...the **view frustum** into a 3D grid ...*
 
  The field of Real-Time rendering has two major opposing driving forces. On the one hand, there's the strive for realism and a wish for ever improving image quality. On the other hand, there is a hard constraint to deliver those images quickly, usually in less than a 1/30th of a second. The only way to bridge this gap is through the use of software optimizations that allow you to squeeze as much performance as possible from the underlying hardware.
- 
+
 Without these optimizations, it would be impossible to achieve the levels of visual fidelity we are accustomed to in modern high-profile games. So, in a sense, **efficient rendering algorithms** are at the core of all modern Real-Time rendering processes and are needed to display nearly anything these days. However, of the countless possible optimizations that one could implement, there are a few notable techniques that can have a dramatic impact on performance and have been fully embraced by the graphics community.
 
 We'll be focusing on two kinds of techniques: those that reduce the amount of unnecessary pixel shader calls and others that focus on lowering the number of lighting computations during shading. You should assume that for most of the algorithms we'll be discussing all other bottlenecks have already been taken care of. Also, proper culling and mesh management have been performed somewhere further upstream. Other important details that come into play when rendering a mesh will have also been stripped away in favor of presenting a clearer picture of how and why these efficient algorithms outperform their predecessors.
 
-However, there ain't no such thing as a free lunch. None of these algorithms have zero overhead or are guaranteed to improve the performance of your rendering pipeline. Make sure to consult your ~~[primary care phycisian](https://renderdoc.org/)~~ profiler tools to assess the location of your current bottleneck. 
+However, there ain't no such thing as a free lunch. None of these algorithms have zero overhead or are guaranteed to improve the performance of your rendering pipeline. Make sure to consult your ~~[primary care phycisian](https://renderdoc.org/)~~ profiler tools to assess the location of your current bottleneck.
 
-Let's begin by examining the most basic rendering algorithm: 
+Let's begin by examining the most basic rendering algorithm:
 
 ### **Forward Shading**
 <p></p>
@@ -77,7 +77,7 @@ Let's begin by examining the most basic rendering algorithm:
         $('#video1').css({'height':cw  +'px'});
     });
 </script>
- 
+
 <iframe id="forward1" class ="slideshow-iframe" src="{{ site.baseurl }}/slides/forward.html" style = "width: 100%;" frameborder="0" scrolling="no"  ></iframe>
 
 *All animations were built using Blender 2.8, you can find the .blend files [here](https://github.com/Angelo1211/RenderingAlgosGIFS).*
@@ -92,7 +92,7 @@ Buffer display
 for mesh in scene
     for light in scene
         display += simpleShader(mesh, light)
-{% endhighlight %} 
+{% endhighlight %}
 
 In it's vanilla form, **forward shading** is a method of rendering scenes by linearly marching *forward* along the GPU pipeline. A single shader program will be completely in charge of drawing a mesh, starting from the vertex shader, passing through to the rasterizer and finally getting to the fragment shader. The animation and pseudocode above illustrate this behaviour at a glance. For each mesh and light combination we issue a single draw call additively blending the results until the image has been fully assembled. This process is better known as **multi-pass** forward rendering.
 
@@ -102,7 +102,7 @@ For example, a scene with many dynamic lights of different kinds will overwhelm 
 
 <iframe id="overdraw1" class ="slideshow-iframe" src="{{ site.baseurl }}/slides/overdraw.html" style = "width:100%" frameborder="0" scrolling="no"  ></iframe>
 
-We begin with the completed scene from the previous animation and then draw new meshes that overlap the previous ones. This invalidates all of the work done shading the covered parts of the background objects. In multi-pass forward rendering this is especially costly, since each completed pixel went through the full vertex-fragment shader pipeline multiple times before being discarded. Alternatively, we could sort the meshes front to back before rendering so that the fragment depth check takes care of the problem. However, sorting meshes based on their screen location is not a trivial problem to solve for large scenes and is costly to do every frame. 
+We begin with the completed scene from the previous animation and then draw new meshes that overlap the previous ones. This invalidates all of the work done shading the covered parts of the background objects. In multi-pass forward rendering this is especially costly, since each completed pixel went through the full vertex-fragment shader pipeline multiple times before being discarded. Alternatively, we could sort the meshes front to back before rendering so that the fragment depth check takes care of the problem. However, sorting meshes based on their screen location is not a trivial problem to solve for large scenes and is costly to do every frame.
 
 What we need instead is a solution that decouples the process of determining if a mesh contributes to the final image from the act of shading a given mesh.
 
@@ -112,7 +112,7 @@ What we need instead is a solution that decouples the process of determining if 
 **Deferred shading** is that solution. The idea is that we perform all visibility and material fetching in one shader program, store the result in a buffer, and then we *defer* lighting and shading to another shader that takes as an input that buffer. As Angelo Pesce discusses in [The real-time rendering continuum: a taxonomy](http://c0de517e.blogspot.com/2016/08/the-real-time-rendering-continuum.html) there is a lot of freedom as to where we can choose to perform this split. However, the size and content of the intermediate buffer will be determined by the splitting point.
 
 If we're only concerned with overdraw, the buffer simply has to keep track of the last visible mesh per pixel, normally by recording either its depth or position. Before shading we check if each pixel in a mesh matches the corresponding value recorded in the buffer, if not we discard it. The buffer will be initialized to the far plane depth, that way any mesh that is visible, and therefore closer, will be recorded. To summarize using pseudocode:
- 
+
 <div>
 <iframe id="zpre1" class ="slideshow-iframe" src="{{ site.baseurl }}/slides/zprepass.html" style = "width:100%" frameborder="0" scrolling="no"  ></iframe>
 </div>
@@ -149,7 +149,7 @@ Let's update our pseudocode and check out how a basic deferred renderer is imple
 {% highlight c# %}
 //Buffers:
 Buffer display
-Buffer GBuffer 
+Buffer GBuffer
 
 //Shaders:
 Shader simpleShader
@@ -169,18 +169,18 @@ Our G-Buffer contains the following shading attributes presented above in a left
 
 Deferred shading can also be understood as a tool that allows us to trade off memory bandwidth in exchange for a reduction in computation. In the case of multi-pass setups, the G-Buffer reduces the costs of shading because it can cache vertex transformation results and interpolated shaded attributes, which we later reuse each lighting pass by reading the G-Buffer.
 
-Yet, reading and writing memory is not problem free either. Due to latency, all memory requests take time to be serviced. Even though GPUs can hide this latency by working on some other tasks while waiting, if the ratio of compute operations to memory reads in a program is very low it will eventually have no other option but to stall and wait until the memory delivers on the request. No amount of latency hiding can deal with a program that is requesting data at too high a rate. If you're interested in understanding why, [Prof. Fatahalian's course on Paralallel Computer architectures](http://15418.courses.cs.cmu.edu/tsinghua2017/lecture/basicarch) covers the modern Multi-core processor architecture, both for CPUs and GPUs, and explains memory latency and throughput oriented systems in detail. 
+Yet, reading and writing memory is not problem free either. Due to latency, all memory requests take time to be serviced. Even though GPUs can hide this latency by working on some other tasks while waiting, if the ratio of compute operations to memory reads in a program is very low it will eventually have no other option but to stall and wait until the memory delivers on the request. No amount of latency hiding can deal with a program that is requesting data at too high a rate. If you're interested in understanding why, [Prof. Fatahalian's course on Paralallel Computer architectures](http://15418.courses.cs.cmu.edu/tsinghua2017/lecture/basicarch) covers the modern Multi-core processor architecture, both for CPUs and GPUs, and explains memory latency and throughput oriented systems in detail.
 
 > #### Small Detour: How slow are texture reads anyway?
 > ---
 > Texture reads are essentially memory reads and reading memory **is always slow.** How slow you ask? Well, there is no exact answer since it varies from architecture to architecture, but it is generally considered to be about ~200x slower than a register operation, which we can assume to be on the order of about 0.5ns. A nanosecond is a **billionth** of a second, hardly a span of time we experience in our day to day lives. Let's scale it up a bit and imagine that register ops took about a minute instead. In this hellish reality, a memory read would take 3 hours and 20 minutes. Enough time to watch the whole movie The Lord of The Rings: Fellowship of the Ring (extended edition of course) while you wait!
 
-So, why go deferred at all if we'll be wasting so much time writing data to memory and then reading it again in a second shader program? We've already touched upon some of the benefits for multi-pass setups, but in a **single-pass** setup &mdash; shown in the pseudocode below &mdash; performance gains happen for different, but much more important, reasons. 
+So, why go deferred at all if we'll be wasting so much time writing data to memory and then reading it again in a second shader program? We've already touched upon some of the benefits for multi-pass setups, but in a **single-pass** setup &mdash; shown in the pseudocode below &mdash; performance gains happen for different, but much more important, reasons.
 
 {% highlight c# %}
 //Buffers:
 Buffer display
-Buffer GBuffer 
+Buffer GBuffer
 
 //Shaders:
 Shader manyLightShader
@@ -193,13 +193,13 @@ for mesh in scene
 
 //Shading & lighting - Single-pass
 display = manyLightShader(GBuffer, scene.lights)
-{% endhighlight %} 
+{% endhighlight %}
 
 In a single-pass setup we evaluate all of the lights in a scene using only a single large shader. This allows us to read the G-Buffer only once and handle all of the different types of lights using dynamic branching. This approach improves upon some of the shortcomings of multi-pass systems by bypassing the need to load shading attributes multiple times. Single-pass shading is also compatible with forward rendering, but can lead to its single shader program &mdash; sometimes referred to as "uber-shader" &mdash; becoming slow and unwieldy due to its many responsibilities.
 
-And therein lies the biggest perk of deferred shading, it reduces the number of responsibilities of a shader through **specialization**. By dividing the work between multiple shader programs we can avoid massively branching "uber-shaders" and reduce register pressure &mdash; in other words, reduce the amount of variables a shader program needs to keep track of at a given time. 
+And therein lies the biggest perk of deferred shading, it reduces the number of responsibilities of a shader through **specialization**. By dividing the work between multiple shader programs we can avoid massively branching "uber-shaders" and reduce register pressure &mdash; in other words, reduce the amount of variables a shader program needs to keep track of at a given time.
 
-But there are some other drawbacks to classical deferred methods that we haven't discussed yet. For starters, transparency is problematic because G-Buffers only store the information relevant to a single mesh per pixel. This can be overcome by performing a secondary forward pass for transparent meshes but requires extra work per frame. Another major flaw is that there is no easy way to make use of hardware based anti-aliasing(AA) techniques like Multi-Sampled Anti-Aliasing (MSAA). This is not as big of a deal as it used to be thanks to the progress made in the field of Temporal AA. Lastly, the shading attributes that are stored within the G-Buffer are decided by the shading model that will be used later on in the lighting pass. Varying shading models is costly since it requires either large G-Buffers that can accommodate the data for all models or the implementation of a more complex ID/masking setup. 
+But there are some other drawbacks to classical deferred methods that we haven't discussed yet. For starters, transparency is problematic because G-Buffers only store the information relevant to a single mesh per pixel. This can be overcome by performing a secondary forward pass for transparent meshes but requires extra work per frame. Another major flaw is that there is no easy way to make use of hardware based anti-aliasing(AA) techniques like Multi-Sampled Anti-Aliasing (MSAA). This is not as big of a deal as it used to be thanks to the progress made in the field of Temporal AA. Lastly, the shading attributes that are stored within the G-Buffer are decided by the shading model that will be used later on in the lighting pass. Varying shading models is costly since it requires either large G-Buffers that can accommodate the data for all models or the implementation of a more complex ID/masking setup.
 
 However, bandwidth bottleneck concerns and large GPU memory usage continues to overshadow all the issues above and remain the major drawbacks to classical deferred systems. An avenue of optimization that we have yet to cover is efficient light culling. So far, for both forward and deferred systems, in both their multi-pass and single-pass variants, we have evaluated lighting for every light at every pixel on the display. This includes pixels that were never in reach of any lights and therefore needlessly issued G-Buffer reads that consumed some of our precious bandwidth. In the next two sections we'll be looking at ways of efficiently identifying the lights affecting a given pixel.
 
@@ -216,7 +216,7 @@ Compute shaders are heavily used in **Tile-based shading** to efficiently cull l
 {% highlight c# %}
 //Buffers:
 Buffer display
-Buffer GBuffer 
+Buffer GBuffer
 Buffer tileArray
 
 //Shaders:
@@ -234,10 +234,10 @@ for tile in tileArray
    for light in scene
       if lightInTile(tile, light)
           tile += light
-      
+
 //Shading
 display = manyLightShader(GBuffer, tileArray)
-{% endhighlight %} 
+{% endhighlight %}
 
 Our starting point is the single-pass deferred algorithm from earlier. Previously, we'd shade each pixel by adding together the individual contributions of each light source, no matter how far away it was from the receiver. This is, technically speaking, the physically correct thing to do since light does have a near infinite area of influence. After all, [we do receive light from galaxies that are over 32 billion light-years away.](https://en.wikipedia.org/wiki/GN-z11) However, because of [light attenuation](https://imdoingitwrong.wordpress.com/2011/01/31/light-attenuation/) the amount of energy contributed to shading will decrease as a function of distance. Given a spherical light of radius $r$ and intensity $$L_i$$ , the illumination $$I$$ at distance $$d$$ is:
 
@@ -245,11 +245,11 @@ $$ \begin{equation*} I = \frac{L_i}{(d/r + 1)^2} \end{equation*}$$
 
 This allows us to enforce an artificial limit to the area of influence of a light. With enough distance all light sources are attenuated so much that their contributions to shading become effectively imperceptible. We represent this by setting a threshold value of $$I$$ under which we deem there are no light contributions. This gives light sources a concrete volume of influence which is represented with different shapes for each type of light source. For point lights this volume takes the shape of a sphere, for spotlights a cone and for directional lights a full-screen quad.
 
-In the animation above we represent the volume of influence using colored wire-frame meshes. With these meshes we can perform something akin to collision detection between light volumes and tiles. If any portion of the light "mesh" is contained within a tile, we add that light to a per-tile light list. We perform this check for all tiles and every light in the scene. Finally, we shade the whole scene in one shader pass that uses the per-tile light lists as an input. 
+In the animation above we represent the volume of influence using colored wire-frame meshes. With these meshes we can perform something akin to collision detection between light volumes and tiles. If any portion of the light "mesh" is contained within a tile, we add that light to a per-tile light list. We perform this check for all tiles and every light in the scene. Finally, we shade the whole scene in one shader pass that uses the per-tile light lists as an input.
 
 Notice that the light culling step does not depend on any other part of the rendering pipeline, hence, we can implement tiled shading using either deferred or a single-pass forward renderer. Tiled forward shading is sometimes also referred to as Forward+, with identical implementation details.
 
-Conceptually, this is all you need to know to grasp the core idea behind tiled shading. Yet you might be wondering about some of the implementation details we have glossed over. For example, how do we determine the optimal size for the tiles? The range of possible sizes goes from one tile per pixel to one tile per screen. You could think of our previous solution as a very inefficient single-tiled system. However, the other end of the spectrum would fare no better. Pixel sized tiles would require large buffers to store and would make the light culling step considerably slower. Not only that, but it wouldn't even help come shading time since GPUs execute multiple threads &mdash;which for now you can imagine as simply being synonymous to pixels &mdash; in groups that run exactly the same code for all members. If each thread/pixel in a group has different lights they will want to execute a different code. 
+Conceptually, this is all you need to know to grasp the core idea behind tiled shading. Yet you might be wondering about some of the implementation details we have glossed over. For example, how do we determine the optimal size for the tiles? The range of possible sizes goes from one tile per pixel to one tile per screen. You could think of our previous solution as a very inefficient single-tiled system. However, the other end of the spectrum would fare no better. Pixel sized tiles would require large buffers to store and would make the light culling step considerably slower. Not only that, but it wouldn't even help come shading time since GPUs execute multiple threads &mdash;which for now you can imagine as simply being synonymous to pixels &mdash; in groups that run exactly the same code for all members. If each thread/pixel in a group has different lights they will want to execute a different code.
 
 When this occurs we say the code has low **coherency** and is highly **divergent.** Executing highly divergent code is *not* what the GPU was designed to do and *will* cause significant performance degradation. The realization that gets us out of this impasse is **that lights tend to affect many pixels at once and these pixels tend to be spatially close together**. By tiling our screen we're leveraging this property and grouping samples together so that they execute the same code. As we discussed above, the GPU is very happy when threads/pixels are coherent and execute exactly the same code. As the saying goes *happy GPU, happy you.* [:)](https://imgur.com/r/noisygifs/QJZhXOh)
 
@@ -261,7 +261,7 @@ Yet, there's a fairly fundamental problem with tiled shading that comes from an 
 
 In the animation above we're looking at the same scene from two perspectives, a familiar front view and an overhead shot that presents the full region of space captured by our virtual camera. In this region, also referred to as **view frustum**, tiles don't appear as 2D quads anymore, but as thin and elongated 3D slices of the frustum. As we'll see soon, this invalidates our previous assumption that tiles contain pixels that are always spatially close together. They might appear next to each other on the screen but, in reality, be separated by a **depth discontinuity**. In a nutshell, a depth discontinuity is a sudden change in distance, measured from the camera, usually found at the boundaries of one object and another.
 
-Whenever we have an in-front of or behind-of relationship between meshes or lights intersecting a tile, the "spatially close assumption" does not hold true anymore. In the animation above this can be seen with the large smooth sphere at the center. It's only illuminated by the yellow light located in the midground of the image. Yet, most of the tiles that are responsible for shading the sphere contain more than just the yellow light. In fact, some of them contain all of the lights in the scene! Even though this isn't quite as bad as our previous situation, we know we can still do better. 
+Whenever we have an in-front of or behind-of relationship between meshes or lights intersecting a tile, the "spatially close assumption" does not hold true anymore. In the animation above this can be seen with the large smooth sphere at the center. It's only illuminated by the yellow light located in the midground of the image. Yet, most of the tiles that are responsible for shading the sphere contain more than just the yellow light. In fact, some of them contain all of the lights in the scene! Even though this isn't quite as bad as our previous situation, we know we can still do better.
 
 A common optimization consists of finding the minimum and maximum depth of the visible meshes in each tile and redefining a tile's frustum to match this range. For the example above this would be an excellent optimization that would eliminate many unnecessary lights from the center tiles. However, to be able to perform this optimization a Z Pre-pass is necessary, since we have to fill the depth buffer before reading it. As we have already discussed, there are many reasons why this might not be feasible in your rendering pipeline.
 
@@ -270,7 +270,7 @@ Also, this solution does very little to solve the main issue of depth discontinu
 ### **Clustered Shading**
 <p></p>
 
-Finally, we enter the last stage of our whirlwind tour of Efficient Rendering Algorithms by introducing **Clustered Shading.** The main idea behind clustered shading will seem like a fairly obvious next step given what we have discussed so far about the shortcomings of tiled shading. Instead of performing light culling checks on 2D screen tiles we'll do it using 3D cells, also known as **clusters**. These clusters are obtained by subdivision of the view frustum in the depth axis. Updating the previous scene and our pseudocode we can easily illustrate the process, like so: 
+Finally, we enter the last stage of our whirlwind tour of Efficient Rendering Algorithms by introducing **Clustered Shading.** The main idea behind clustered shading will seem like a fairly obvious next step given what we have discussed so far about the shortcomings of tiled shading. Instead of performing light culling checks on 2D screen tiles we'll do it using 3D cells, also known as **clusters**. These clusters are obtained by subdivision of the view frustum in the depth axis. Updating the previous scene and our pseudocode we can easily illustrate the process, like so:
 
 
 <iframe id="clus1" class ="slideshow-iframe" src="{{ site.baseurl }}/slides/clustered.html" style = "width:100%" frameborder="0" scrolling="no"></iframe>
@@ -284,7 +284,7 @@ Buffer clusterArray
 //Shaders:
 Shader manyLightShader
 Shader writeShadingAttributes
-CompShader lightInCluster 
+CompShader lightInCluster
 
 //Visibility & materials
 for mesh in scene
@@ -300,13 +300,13 @@ for cluster in clusterArray
 //Shading
 display = manyLightShader(GBuffer, clusterArray)
 
-{% endhighlight %} 
+{% endhighlight %}
 
-Notice how little has changed in the pseudocode when compared to our tiled implementation. This is actually pretty representative of what happened within my pixel shader when I updated my engine from forward+ to clustered shading. It is certainly a lot more difficult to transform a classic forward/deferred shading pipeline to tiled shading than it is to transition from tiled to clustered. 
+Notice how little has changed in the pseudocode when compared to our tiled implementation. This is actually pretty representative of what happened within my pixel shader when I updated my engine from forward+ to clustered shading. It is certainly a lot more difficult to transform a classic forward/deferred shading pipeline to tiled shading than it is to transition from tiled to clustered.
 
 Regarding the animation, check out the yellow light first. In tiled shading it would have affected tiles that would be responsible for shading the faceted sphere. Yet now, it's only registering in clusters that are used to shade the smooth sphere in the back. Probably, the biggest difference in this scene is the reduction in number of tiles affected by the red light. Previously, it was affecting all the meshes in the scene, even though it's only small enough to illuminate the closest sphere and the cube. Now, it is fully contained within one depth slice and only shades those two meshes.
 
-And the best part is that all of this Just Works&#8482; without having to resort to a Z Pre-pass at all, which makes clustered shading compatible with both forward and deferred systems. The key insight is that we know the shape and size of the view frustum before rendering &mdash; or it can be easily inferred from basic camera properties &mdash; so we can pick a depth subdivision scheme and use that to build a cluster grid that is completely independent of the underlying meshes in the scene. 
+And the best part is that all of this Just Works&#8482; without having to resort to a Z Pre-pass at all, which makes clustered shading compatible with both forward and deferred systems. The key insight is that we know the shape and size of the view frustum before rendering &mdash; or it can be easily inferred from basic camera properties &mdash; so we can pick a depth subdivision scheme and use that to build a cluster grid that is completely independent of the underlying meshes in the scene.
 
 This is great news since it indicates that we have achieved a strong decoupling of meshes and lighting in the shading process. If with classic forward/deferred our algorithmic complexity was $$ O(\text{mesh}* \text{lights}) $$ with clustered shading we have finally achieved a much better performing $$ O(\text{mesh} + \text{lights}) $$ algorithm. This is because we now evaluate meshes once, using either deferred or a Z pre-pass, and perform efficient light culling using clustered shading, that makes sure only the relevant lights are considered per mesh.
 
@@ -317,7 +317,7 @@ As with every algorithm, there are still many improvements that could be made to
 ### **Comparing Algorithms**
 <p></p>
 
-Even though I've presented new techniques as direct replacements to preceding ones, that does not necessarily mean that older algorithms are obsolete. As mentioned in the introduction, no efficient rendering algorithm has zero overhead, and as their degree of refinement increases, so does their complexity. Which of the above algorithms will be best for you will depend on many factors such as: your platform, the number and complexity of lights, triangle count, how your meshes are generated and the complexity of your shading model, among others. I've included a table below, [taken from Real-Time Rendering 4th edition](http://www.realtimerendering.com/), that summarizes where the strengths and weaknesses of each technique lie. 
+Even though I've presented new techniques as direct replacements to preceding ones, that does not necessarily mean that older algorithms are obsolete. As mentioned in the introduction, no efficient rendering algorithm has zero overhead, and as their degree of refinement increases, so does their complexity. Which of the above algorithms will be best for you will depend on many factors such as: your platform, the number and complexity of lights, triangle count, how your meshes are generated and the complexity of your shading model, among others. I've included a table below, [taken from Real-Time Rendering 4th edition](http://www.realtimerendering.com/), that summarizes where the strengths and weaknesses of each technique lie.
 
 <div class= "table-wrapper" markdown="block">
 
@@ -334,7 +334,7 @@ Even though I've presented new techniques as direct replacements to preceding on
 </div>
 <p></p>
 
-To make the most out of this table it's best if you have a list of features ordered by priority so you can make an informed decision as to which algorithm best suits your needs. An effective tool for this purpose, that I myself have used in the past, is the [Analytical Hierarchy Process (AHP)](http://www.dii.unisi.it/~mocenni/Note_AHP.pdf). It helps simplify the decision making process by reducing it into a set of pairwise comparisons and can quantify for you the relative importance of each feature, as well as check how consistent you were in your evaluations. 
+To make the most out of this table it's best if you have a list of features ordered by priority so you can make an informed decision as to which algorithm best suits your needs. An effective tool for this purpose, that I myself have used in the past, is the [Analytical Hierarchy Process (AHP)](http://www.dii.unisi.it/~mocenni/Note_AHP.pdf). It helps simplify the decision making process by reducing it into a set of pairwise comparisons and can quantify for you the relative importance of each feature, as well as check how consistent you were in your evaluations.
 
 In the table above, register pressure is analogous to shader complexity and can be an indication of how efficiently an algorithm is making use of GPU compute resources. Transparency and MSAA can actually be supported in both tiled and simple deferred systems but generally at a significantly higher cost when compared to forward. Also, deferred systems are definitely capable of varying shading models/materials, but require use of "shader look up tables" or some material ID system to implement. Given the relative ease with which the same features can be included in a forward engine it was important to highlight the difference.
 
@@ -372,11 +372,11 @@ So, now that I've presented the landscape of efficient rendering algorithms I ho
 *...a **3D grid of blocks or "clusters"** and ...*
 *...each **Active Volume**...*
 
-**Clustered Shading** was first introduced by [Ola Olsson et al. in "Clustered Deferred and Forward Shading"](http://www.cse.chalmers.se/~uffe/clustered_shading_preprint.pdf) around 2012. Since then, it has been production proven through implementation in multiple successful projects such as the 2016 reboot of [Doom](https://en.wikipedia.org/wiki/Doom_(2016_video_game)) and [Detroit: Become Human.](https://www.playstation.com/en-us/games/detroit-become-human-ps4/) It has recently gained more attention due to Unity3D's announcement that it would be supported in their new [High Definition Render Pipeline.](https://github.com/Unity-Technologies/ScriptableRenderPipeline/wiki/High-Definition-Render-Pipeline-overview) 
+**Clustered Shading** was first introduced by [Ola Olsson et al. in "Clustered Deferred and Forward Shading"](http://www.cse.chalmers.se/~uffe/clustered_shading_preprint.pdf) around 2012. Since then, it has been production proven through implementation in multiple successful projects such as the 2016 reboot of [Doom](https://en.wikipedia.org/wiki/Doom_(2016_video_game)) and [Detroit: Become Human.](https://www.playstation.com/en-us/games/detroit-become-human-ps4/) It has recently gained more attention due to Unity3D's announcement that it would be supported in their new [High Definition Render Pipeline.](https://github.com/Unity-Technologies/ScriptableRenderPipeline/wiki/High-Definition-Render-Pipeline-overview)
 
-Its popularity is not surprising given that this algorithm offers the highest light-culling efficiency among current real-time many-light algorithms. Moreover, clustered shading improves upon other light culling algorithms by virtue of being compute bound instead of bandwidth limited, which we already discussed the benefit of in part one of this post. 
+Its popularity is not surprising given that this algorithm offers the highest light-culling efficiency among current real-time many-light algorithms. Moreover, clustered shading improves upon other light culling algorithms by virtue of being compute bound instead of bandwidth limited, which we already discussed the benefit of in part one of this post.
 
-At the heart of this algorithm is the cluster data structure which subdivides the view frustum into a set of volume tiles or **clusters**. This process can also be viewed as a rough voxelization of the view frustum so, given that volumetric data structures are becoming more popular by the day, this is a great opportunity to become more familiar with them. 
+At the heart of this algorithm is the cluster data structure which subdivides the view frustum into a set of volume tiles or **clusters**. This process can also be viewed as a rough voxelization of the view frustum so, given that volumetric data structures are becoming more popular by the day, this is a great opportunity to become more familiar with them.
 
 The basic steps required to implement clustered shading are outlined in the original paper like so:
 
@@ -389,7 +389,7 @@ The basic steps required to implement clustered shading are outlined in the orig
 
 My goal for this part is to go through the list in order and explain in detail how I implemented each step. However, steps two and six won't be covered since they are mostly dependent on the shading model you're using. Also, steps three and four are combined into one and covered in the section on Determining Active Clusters, much like in [Van Oosten's implementation](https://www.3dgep.com/volume-tiled-forward-shading/).
 
-A quick word of warning, most of the code we'll be looking at from now on will be written in GLSL and aimed for use in compute shaders. Although clustered shading *can* be fully implemented on the CPU, I personally chose to do it on the GPU. Moving forward, I will assume a basic level of familiarity with compute shaders and shader storage buffer objects. If this is your first time encountering them, I recommend you to take a look at [this link](https://github.com/Angelo1211/HybridRenderingEngine/wiki/References#20-gpu-programming-and-parallel-computer-architectures), it's a compilation of the sources I used to learn how to write compute shaders. Also, although most of this code uses OpenGL terminology the principles should directly translate to whatever API you're using. With all warnings out of the way, let's begin! 
+A quick word of warning, most of the code we'll be looking at from now on will be written in GLSL and aimed for use in compute shaders. Although clustered shading *can* be fully implemented on the CPU, I personally chose to do it on the GPU. Moving forward, I will assume a basic level of familiarity with compute shaders and shader storage buffer objects. If this is your first time encountering them, I recommend you to take a look at [this link](https://github.com/Angelo1211/HybridRenderingEngine/wiki/References#20-gpu-programming-and-parallel-computer-architectures), it's a compilation of the sources I used to learn how to write compute shaders. Also, although most of this code uses OpenGL terminology the principles should directly translate to whatever API you're using. With all warnings out of the way, let's begin!
 
 
 ### **Building a Cluster Grid**
@@ -403,17 +403,17 @@ We'll be focusing on building cluster grids that group samples based on their vi
 
 *All animations were built using Blender 2.8, you can find the .blend files [here](https://github.com/Angelo1211/RenderingAlgosGIFS).*
 
-The animation above showcases these three alternative **subdivision schemes**. The first one is regular subdivision in NDC space. As you can see, it's the most unevenly distributed of the bunch. The clusters close to the far plane are extremely large while the clusters adjacent to the near plane are minuscule. This is due to the non-linearity of NDC space which becomes evident when values get transformed to view space. [This article by Nathan Reed](https://developer.nvidia.com/content/depth-precision-visualized) helps you visualize this behavior with some very neat plots. This doesn't quite work as a subdivision scheme because we generally would like our clusters to be small so that they contain very few lights and also evenly distributed, which clearly isn't the case here. 
+The animation above showcases these three alternative **subdivision schemes**. The first one is regular subdivision in NDC space. As you can see, it's the most unevenly distributed of the bunch. The clusters close to the far plane are extremely large while the clusters adjacent to the near plane are minuscule. This is due to the non-linearity of NDC space which becomes evident when values get transformed to view space. [This article by Nathan Reed](https://developer.nvidia.com/content/depth-precision-visualized) helps you visualize this behavior with some very neat plots. This doesn't quite work as a subdivision scheme because we generally would like our clusters to be small so that they contain very few lights and also evenly distributed, which clearly isn't the case here.
 
-The next logical step might seem trying to uniformly subdivide in view space, which is what the second image represents. This actually creates the opposite problem. The clusters close to the near plane are now huge while the ones close to the far plane are now wide and very thin which is also *No Bueno.* 
+The next logical step might seem trying to uniformly subdivide in view space, which is what the second image represents. This actually creates the opposite problem. The clusters close to the near plane are now huge while the ones close to the far plane are now wide and very thin which is also *No Bueno.*
 
 Therefore, the authors of the original paper settled on a non-uniform scheme that is exponentially spaced to achieve self-similar subdivisions, as seen on the third and last image above. The idea is to counteract the NDC non-linearity with another exponential non-linearity. I included the equation used in the paper below. Here, $k$ represents the depth slice, $Z_{vs}$ the view space depth, $\text{near}$ is the near plane depth, $\theta$ represents half the field of view and $S_y$ is equal to the number of subdivision in $y$.
 
-$$\begin{equation} k = \left\lfloor\dfrac{ \log\left(-Z_{vs} / \text{near}\right)}{\log\left(1 +  \frac{2 tan \theta}{S_y}\right)}\right\rfloor \end{equation}$$ 
+$$\begin{equation} k = \left\lfloor\dfrac{ \log\left(-Z_{vs} / \text{near}\right)}{\log\left(1 +  \frac{2 tan \theta}{S_y}\right)}\right\rfloor \end{equation}$$
 
-Yet, I didn't end up using any of the above subdivisions in my implementation at all. While researching the topic of clustered shading I found Tiago Sousa's DOOM 2016 Siggraph presentation and inside spotted the following equation: 
+Yet, I didn't end up using any of the above subdivisions in my implementation at all. While researching the topic of clustered shading I found Tiago Sousa's DOOM 2016 Siggraph presentation and inside spotted the following equation:
 
-$$\begin{equation} \text{Z} = \text{Near}_z \left(\frac{\text{Far}_z}{\text{Near}_z} \right)^{\text{slice} / \text{numSlices}} \end{equation}$$ 
+$$\begin{equation} \text{Z} = \text{Near}_z \left(\frac{\text{Far}_z}{\text{Near}_z} \right)^{\text{slice} / \text{numSlices}} \end{equation}$$
 
 Here $Z$ represents depth, $\text{Near}_z$ and $\text{Far}_z$ represent the near and far plane respectively. And slice and numSlices are the current subdivision corresponding to the depth value Z and the total number of subdivisions.
 
@@ -421,7 +421,7 @@ I don't know about you, but I thought it was pretty neat when I first saw it. Yo
 
 <div class="equation-wrapper">
 
-$$\begin{equation} \text{slice} = \left\lfloor\ \log\left( Z\right)\frac{\text{numSlices}}{\log\left( \text{Far}_z / \text{Near}_z\right)} -  \frac{\text{numSlices} \times \log\left( \text{Near}_z \right)}{\log\left( \text{Far}_z / \text{Near}_z\right)}  \right\rfloor \end{equation}$$ 
+$$\begin{equation} \text{slice} = \left\lfloor\ \log\left( Z\right)\frac{\text{numSlices}}{\log\left( \text{Far}_z / \text{Near}_z\right)} -  \frac{\text{numSlices} \times \log\left( \text{Near}_z \right)}{\log\left( \text{Far}_z / \text{Near}_z\right)}  \right\rfloor \end{equation}$$
 
 </div>
 
@@ -429,7 +429,7 @@ The major advantage of equation (3) is that the only variable is Z and everythin
 
 <iframe id="zslice2" src="https://www.desmos.com/calculator/msnl9ob6tx?embed" style="width:100%" frameborder="0"></iframe>
 
-Here's what the depth slicing looks like in a scene like Sponza, taken directly from my engine. The colors represent the cluster Z index in binary, looping every 8 slices. 
+Here's what the depth slicing looks like in a scene like Sponza, taken directly from my engine. The colors represent the cluster Z index in binary, looping every 8 slices.
 
 <div class="img">
 	<img class="col gif" src="{{ site.baseurl }}/img/CG/clusters.png">
@@ -451,9 +451,9 @@ float zNear;      // Near plane distance in view space depth
 //Output
 struct cluster{   // A cluster volume is represented using an AABB
    vec4 minPoint; // We use vec4s instead of a vec3 for memory alignment purposes
-   vec4 maxPoint; 
+   vec4 maxPoint;
 }
-cluster[];        // A linear list of AABB's with size = numclusters 
+cluster[];        // A linear list of AABB's with size = numclusters
 
 //Each cluster has it's own thread ID in x, y and z
 //We dispatch 16x9x24 threads, one thread per cluster
@@ -494,7 +494,7 @@ void main(){
     //Cluster is just a SSBO made of a struct of 2 vec4's
     cluster[tileIndex].minPoint  = vec4(minPointAABB , 0.0);
     cluster[tileIndex].maxPoint  = vec4(maxPointAABB , 0.0);
-}                                                                                                    
+}
 {% endhighlight %}
 
 This compute shader is ran once per cluster and aims to obtain the min and max points of the AABB encompassing said cluster. First, imagine we're looking at the view frustum from a front camera perspective, like we did in the Tiled Shading animations of part one. Each tile will have a min and max point, which in our coordinate system will be the upper right and bottom left vertices of a tile respectively. After obtaining these two points in screen space we set their Z position equal to the near plane, which in NDC and in my specific setup is equal to -1 &mdash; I know, I know. I should be using reverse Z, not the default OpenGL layout, I'll fix that eventually.
@@ -524,7 +524,7 @@ vec4 screen2View(vec4 screen){
 
     //Perspective projection
     view = view / view.w;
-    
+
     return view;
 }
 {% endhighlight %}
@@ -532,8 +532,8 @@ vec4 screen2View(vec4 screen){
 
 {% highlight c# %}
 //Input:
-float zDistance; // Normally the z-depth boundaries of a tile 
-vec3 A,B;        // Two points that are located along the same line 
+float zDistance; // Normally the z-depth boundaries of a tile
+vec3 A,B;        // Two points that are located along the same line
 
 //Output:
 vec3 result; //A new point along the same line at the given plane
@@ -556,32 +556,32 @@ vec3 lineIntersectionToZPlane(vec3 A, vec3 B, float zDistance){
 
 Specifically, let's talk about these two functions: line intersection to plane and screen to view. The latter converts a given point in screen space to view space by taking the reverse transformation steps taken by the graphics pipeline. We begin from screen space, transform to NDC space, then clip space and lastly to view space by using the inverse projection matrix and dividing by w. I found this function in Matt Pettineo's awesomely title blog: [THE DANGER ZONE](https://mynameismjp.wordpress.com/2009/03/10/reconstructing-position-from-depth/), so thanks Matt!
 
-We use the line intersection to plane function to obtain the points on the corners of the AABB that encompasses a cluster. This function is based on Christer Ericsons implementation of this test from his book [Real-Time Collision Detection](http://realtimecollisiondetection.net/blog/). The normal vector of the planes is fixed at 1.0 in the z direction because we are evaluating the points in view space and positive z points towards the camera from this frame of reference. 
+We use the line intersection to plane function to obtain the points on the corners of the AABB that encompasses a cluster. This function is based on Christer Ericsons implementation of this test from his book [Real-Time Collision Detection](http://realtimecollisiondetection.net/blog/). The normal vector of the planes is fixed at 1.0 in the z direction because we are evaluating the points in view space and positive z points towards the camera from this frame of reference.
 
 Our list of cluster AABBs will be valid as long as the view frustum stays the same shape. So, it can be calculated once at load time and only recalculated with any changes in FOV or other view field alterning camera properties. My initial profiling in RenderDoc seems to indicate that the GPU can run this shader really quickly, so I think it wouldn't be a huge deal either if this was done every frame. With our cluster grid assembled we've completed step one of our 6 step plan towards building a clustered shading algorithm and can move on to finding visible clusters.
 
 ### **Determining Active Clusters**
 <p></p>
 
-Technically speaking, this section is optional since active cluster determination is not a crucial part of light culling. Even though it isn't terribly optimal, you can simply perform culling checks for all clusters in the cluster grid every frame. Thankfully, determining active clusters doesn't take much work to implement and can speed up the light culling pass considerably. The only drawback is that it *will* require a Z Pre-pass. 
+Technically speaking, this section is optional since active cluster determination is not a crucial part of light culling. Even though it isn't terribly optimal, you can simply perform culling checks for all clusters in the cluster grid every frame. Thankfully, determining active clusters doesn't take much work to implement and can speed up the light culling pass considerably. The only drawback is that it *will* require a Z Pre-pass.
 
 If this isn't an issue, or you're using a deferred system, here's one way you could implement it. The key idea is that not all clusters will be visible all of the time, and there is no point in performing light culling against clusters you cannot see. So, we can check every pixel in parallel for their cluster ID and mark it as active on a list of clusters. This list will most likely be sparsely populated, so we will compact it into another list using atomic operations. Then, during light culling we will check light "collisions" against the compacted list instead, saving us from having to check every light for every cluster. Here's that process presented more explicitly in code:
 
 {% highlight c# %}
-//Input 
+//Input
 vec2 pixelID; // The thread x and y id corresponding to the pixel it is representing
 vec2 screenDimensions; // The total pixel size of the screen in x and y
 
 //Output
 bool clusterActive[];
 
-//We will evaluate the whole screen in one compute shader 
+//We will evaluate the whole screen in one compute shader
 //so each thread is equivalent to a pixel
 void markActiveClusters(){
     //Getting the depth value
     vec2 screenCord = pixelID.xy / screenDimensions.xy;
     float z = texture(screenCord) //reading the depth buffer
-    
+
     //Getting the linear cluster index value
     uint clusterID = getClusterIndex(vec3(pixelID.xy, z));
     clusterActive[clusterID] = true;
@@ -597,7 +597,7 @@ uint tileSizeInPx; // How many pixels a rectangular cluster takes in x and y
 uint3 numClusters; // The fixed number of clusters in x y and z axes
 
 //Output
-uint clusterIndex; // The linear index of the cluster the pixel belongs to 
+uint clusterIndex; // The linear index of the cluster the pixel belongs to
 
 uint getClusterIndex(vec3 pixelCoord){
     // Uses equation (3) from Building a Cluster Grid section
@@ -611,7 +611,7 @@ uint getClusterIndex(vec3 pixelCoord){
 }
 {% endhighlight %}
 
-These two functions form the first compute shader pass and are equivalent to step three "Find visible clusters." In function one, **markActiveClusters**, each thread represents a pixel and its job is to check which cluster it belongs to. Any cluster that we can see is considered active and hence we'll set it as active in the clusterActive array. The second function, **getClusterIndex**, is the workhorse of the compute shader. It is responsible for finding which cluster a pixel belongs to using depth and screen space coordinates. To increase efficiency, both Van Oosten and Olsson compact this list into a set of unique clusters. 
+These two functions form the first compute shader pass and are equivalent to step three "Find visible clusters." In function one, **markActiveClusters**, each thread represents a pixel and its job is to check which cluster it belongs to. Any cluster that we can see is considered active and hence we'll set it as active in the clusterActive array. The second function, **getClusterIndex**, is the workhorse of the compute shader. It is responsible for finding which cluster a pixel belongs to using depth and screen space coordinates. To increase efficiency, both Van Oosten and Olsson compact this list into a set of unique clusters.
 
 {% highlight c# %}
 //Input
@@ -621,7 +621,7 @@ uint globalActiveClusterCount; //Number of active clusters
 //Output
 uint uniqueActiveClusters[]; //compacted list of active clusters
 
-//One compute shader for all clusters, one cluster per thread 
+//One compute shader for all clusters, one cluster per thread
 void buildCompactClusterList(){
     uint clusterIndex  = gl_GlobalInvocationID;
     if(clusterActive[clusterIndex]){
@@ -647,7 +647,7 @@ Performing this "light volume collision detection" requires that I define clearl
 uint light; // A given light index in the shared lights array
 uint tile;  // The cluster index we are testing
 
-//Checking for intersection given a cluster AABB and a light volume 
+//Checking for intersection given a cluster AABB and a light volume
 bool testSphereAABB(uint light, uint tile){
     float radius = sharedLights[light].range;
     vec3 center  = vec3(viewMatrix * sharedLights[light].position);
@@ -657,7 +657,7 @@ bool testSphereAABB(uint light, uint tile){
 }
 {% endhighlight %}
 
-The main idea is that we check the distance between the point light sphere center and the AABB. If the distance is less than the radius they are intersecting. For spotlights, the light volume and consequently the collision tests will be very different. However, I haven't implemented them in my engine at all so I can't tell you much about them yet. :( Check out [this](https://newq.net/dl/pub/SA2014Practical.pdf) presentation by Emil Persson that explains how they implemented spotlight culling in Just Cause 3 if you do want to know more. 
+The main idea is that we check the distance between the point light sphere center and the AABB. If the distance is less than the radius they are intersecting. For spotlights, the light volume and consequently the collision tests will be very different. However, I haven't implemented them in my engine at all so I can't tell you much about them yet. :( Check out [this](https://newq.net/dl/pub/SA2014Practical.pdf) presentation by Emil Persson that explains how they implemented spotlight culling in Just Cause 3 if you do want to know more.
 
 Our last stop before we begin our step by step breakdown is a quick overview of the data structures we'll be using. They're implemented solely on the GPU using shader storage buffer objects, so keep in mind that reads and writes have incoherent memory access and **will** require the appropriate barriers to avoid any disasters. As we describe them, keep referring back to the following diagram. It will come in handy while you work towards building your own mental picture of how all the pieces fit in together:
 
@@ -672,11 +672,11 @@ We begin by examining the **global light list.** It is a pretty simple array con
 However, unlike what's shown in the diagram, the global light index list **does *not* necessarily store the indices for each cluster sequentially.** In fact, it might store them in a completely random order. This was a huge source of confusion for me that took way longer than it should have to clear up, so I thought it would be worth mentioning just in case. If you're wondering why we need such a convoluted data structure, the quick answer is that it plays nicely with the GPU and works well in parallel. Also, it allows both compute shaders and pixel shaders to read the same data structure and execute the same code. Lastly, it is pretty memory efficient since clusters tend to share the same lights and by storing indices to the global light list instead of the lights themselves we save up memory.
 
 
-Now that we have all the pieces laid out on the board we can take a look at what it takes to cull lights in clustered shading. Because my compute shader would not fit properly in this post I shortened it a bit, if you want to check out the real deal, as always, [here's the link.](https://github.com/Angelo1211/HybridRenderingEngine/blob/master/assets/shaders/ComputeShaders/clusterCullLightShader.comp) 
+Now that we have all the pieces laid out on the board we can take a look at what it takes to cull lights in clustered shading. Because my compute shader would not fit properly in this post I shortened it a bit, if you want to check out the real deal, as always, [here's the link.](https://github.com/Angelo1211/HybridRenderingEngine/blob/master/assets/shaders/ComputeShaders/clusterCullLightShader.comp)
 
 {% highlight c# %}
 //Input
-uint threadCount; // Number of threads in a group 
+uint threadCount; // Number of threads in a group
 uint lightCount;  // Number of total lights in the scene
 uint numBatches;  // Number of groups of lights that will be completed
 sharedLights[];   // A grouped-shared array which contains all the lights being evaluated
@@ -687,7 +687,7 @@ uint globalIndexCount;  // How many lights are active in the scene
 globalLightIndexList[]; // List of active lights in the scene
 
 // Runs in batches of multiple Z slices at once
-// In my implementation 6 batches 
+// In my implementation 6 batches
 // We begin by each thread representing a cluster
 // Then in the light traversal loop they change to representing lights
 // Then change again near the end to represent clusters
@@ -700,11 +700,11 @@ void main(){
     uint numBatches = (lightCount + threadCount -1) / threadCount;
     uint tileIndex = gl_GlobalInvocationID;
 
-    //Local thread variables 
+    //Local thread variables
     uint visibleLightCount = 0;
     uint visibleLightIndices[100];
-    
-    // Traversing list of lights in batches of equal size to thread 
+
+    // Traversing list of lights in batches of equal size to thread
     // group which is equal to 4 slices of the cluster grid at once
     for( uint batch = 0; batch < numBatches; ++batch){
         uint lightIndex = batch * threadCount + gl_LocalInvocationIndex;
@@ -730,22 +730,22 @@ void main(){
 
     //We want all thread groups to have completed the light tests before continuing
     barrier();
-    
+
     //Adding the light indeces to the cluster light index list
     uint offset = atomicAdd(globalIndexCount, visibleLightCount);
     for(uint i = 0; i < visibleLightCount; ++i){
         globalLightIndexList[offset + i] = visibleLightIndices[i];
     }
-    
+
     //Updating the light grid for each cluster
     lightGrid[tileIndex].offset = offset;
     lightGrid[tileIndex].count = visibleLightCount;
 }
 {% endhighlight %}
 
-In the current version of my cluster shading pipeline I'm not performing any active cluster determination. I wasn't running a Z Pre-pass until very recently so instead, I've chosen to check lights against every cluster of the view frustum. This is also the case in the compute shader above, which performs light culling for every cluster in the cluster grid. The shader is dispatched six times because each thread group contains four z slices $(24/4 = 6)$, which is the largest amount I could comfortably fit inside a single thread group. 
+In the current version of my cluster shading pipeline I'm not performing any active cluster determination. I wasn't running a Z Pre-pass until very recently so instead, I've chosen to check lights against every cluster of the view frustum. This is also the case in the compute shader above, which performs light culling for every cluster in the cluster grid. The shader is dispatched six times because each thread group contains four z slices $(24/4 = 6)$, which is the largest amount I could comfortably fit inside a single thread group.
 
-Thread groups sizes are actually relevant in this compute shader since I'm using shared GPU memory to reduce the number of reads and writes by only loading each light once per thread group, instead of once per cluster. With that in mind, let's break down what's going on within the shader. First, each thread gets its bearings and begins by calculating some initialization values. For example, how many threads there are in a thread group, what it's linear cluster index is and in how many passes it shall traverse the global light list. Next, each thread initializes a count variable of how many lights intersect its cluster and a local index light array to zero. 
+Thread groups sizes are actually relevant in this compute shader since I'm using shared GPU memory to reduce the number of reads and writes by only loading each light once per thread group, instead of once per cluster. With that in mind, let's break down what's going on within the shader. First, each thread gets its bearings and begins by calculating some initialization values. For example, how many threads there are in a thread group, what it's linear cluster index is and in how many passes it shall traverse the global light list. Next, each thread initializes a count variable of how many lights intersect its cluster and a local index light array to zero.
 
 Once setup is complete, each thread group begins a traversal of a batch of lights. Each individual thread will be responsible for loading a light and writing it to shared memory so other threads can read it. A barrier after this step ensures all threads are done loading before continuing. Then, each thread performs collision detection for its cluster, using the AABB we determined in step one, against every light in the shared memory array, writing all positive intersections to the local thread index array. We repeat these steps until every light in the global light array has been evaluated.
 
@@ -763,7 +763,7 @@ If you're interested, your first stop should be [Jeremiah Van Oosten's thesis](h
 <iframe id="video1" style="width:100%" src="https://www.youtube.com/embed/nyItqF3sM84" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
 
 
-Ola Olsson, the original author of the paper, gave some talks about clustered rendering around 2014-15. You can find slides for two of them [here](https://newq.net/publications/more/s2015-many-lights-course) and [here](https://www.zora.uzh.ch/id/eprint/107598/1/a11-olsson.pdf). He and other speakers, present their findings about some various techniques that leverage the benefits of clustered shading. For example, one of them focuses on [virtual shadow mapping](http://www.cse.chalmers.se/~uffe/ClusteredWithShadows.pdf) enabling hundreds of real-time shadow casting dynamic lights, while another presents an alternate clustering method best suited for mobile hardware. 
+Ola Olsson, the original author of the paper, gave some talks about clustered rendering around 2014-15. You can find slides for two of them [here](https://newq.net/publications/more/s2015-many-lights-course) and [here](https://www.zora.uzh.ch/id/eprint/107598/1/a11-olsson.pdf). He and other speakers, present their findings about some various techniques that leverage the benefits of clustered shading. For example, one of them focuses on [virtual shadow mapping](http://www.cse.chalmers.se/~uffe/ClusteredWithShadows.pdf) enabling hundreds of real-time shadow casting dynamic lights, while another presents an alternate clustering method best suited for mobile hardware.
 
 DOOM 2016 is another great source of information. It is considered a milestone implementation of clustered forward shading and many of the advances it made are recorded in [this Siggraph 2016 talk by Tiago Sousa and Jean Geffroy](http://advances.realtimerendering.com/s2016/Siggraph2016_idTech6.pdf). Some interesting takeaways from the talk can be found in the post-processing section. Specifically, in the explanation of how they optimized shaders to make use of GCN scalar units and saved some Vector General-Purpose Registers(VGPR). Also, by voxelizing environment probes, decals and lights the benefits of the cluster data structure were brought over to nearly all items that influence lighting.
 
@@ -774,7 +774,7 @@ Over the coming months, as I continue to work on my renderer, I expect to have t
 ### **Successful Implementations**
 <p></p>
 
-So I would be remiss not to end this post by sharing some great presentations from other more experienced devs where they discuss their own versions of Clustered shading. As you can imagine, no two are alike, both in the nitty-gritty details of their implementations and in the large scale differences found in the genres of the games they make. It speaks volumes for the flexibility of this algorithm and hints towards a future where hybrid forward/deferred engines are the norm for AAA products that demand the highest visual fidelity. 
+So I would be remiss not to end this post by sharing some great presentations from other more experienced devs where they discuss their own versions of Clustered shading. As you can imagine, no two are alike, both in the nitty-gritty details of their implementations and in the large scale differences found in the genres of the games they make. It speaks volumes for the flexibility of this algorithm and hints towards a future where hybrid forward/deferred engines are the norm for AAA products that demand the highest visual fidelity.
 
 Also, hey, I've technically implemented a Clustered Renderer too! If you've forgotten about it after reading this whole post I don't blame you, but [here's a link](https://github.com/Angelo1211/HybridRenderingEngine) so that you don't have to scroll all the way to the top. It's a simplified implementation with much of the code commented so you &mdash; and me in about a year when I inevitably forget about it &mdash; can follow along easily. Okay okay, enough self promotion, here are the goods:
 
@@ -794,7 +794,6 @@ Also, hey, I've technically implemented a Clustered Renderer too! If you've forg
 * [ Efficient Virtual Shadow Maps for Many Lights by Ola Olsson et al.](http://www.cse.chalmers.se/~uffe/ClusteredWithShadows.pdf)
 
 ---
-*Psst, hey you! If you've gotten this far I'd like to thank you for taking the time to read this post. I hope you enjoyed reading it as much as I did writing it. Just letting you know that I'm currently looking for a Graphics Programming position. If you're interested or know of any opportunities, I'd appreciate it if you'd let me know. Feel free to check out my "about" page for a choice selection of social media where you can reach me!*
+*Psst, hey you! If you've gotten this far I'd like to thank you for taking the time to read this post. I hope you enjoyed reading it as much as I did writing it. Feel free to get in touch with any questions or comments. Check out my "about" page for a choice selection of social media where you can reach me!*
 
 *Any questions? Dead links? Complaints to management? My email is angelo12@vt.edu but you can also find me on twitter at [@aortizelguero](https://twitter.com/aortizelguero).*
-
